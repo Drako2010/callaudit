@@ -1,0 +1,20 @@
+# Configuracion local
+.env
+
+# Logs
+*.log
+
+# Archivos Temporales
+*.tmp
+*.temp
+
+# Archivos de Windows
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+
+# XAMPP
+xampp/
