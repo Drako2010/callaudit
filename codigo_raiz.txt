@@ -1,0 +1,631 @@
+ 
+============================================================ 
+ARCHIVO: campaigns.php 
+============================================================ 
+<?php
+
+require_once __DIR__ . '/services/AuthMiddleware.php';
+require_once __DIR__ . '/controllers/CampaignController.php';
+
+$auth = new AuthMiddleware();
+
+$auth->proteger();
+
+$usuario = $auth->usuario();
+
+if ($usuario === null) {
+    header('Location: login.php');
+    exit;
+}
+
+$tenantId = (int) $usuario['tenant_id'];
+
+$controller = new CampaignController();
+
+// Obtiene las campañas de la empresa del usuario autenticado.
+$campaigns = $controller->index($tenantId);
+
+// Envía los datos a la vista.
+require_once __DIR__ . '/views/campaigns/index.php'; 
+============================================================ 
+ARCHIVO: campaign_agents.php 
+============================================================ 
+<?php
+
+require_once __DIR__ . '/services/AuthMiddleware.php';
+require_once __DIR__ . '/controllers/CampaignController.php';
+require_once __DIR__ . '/controllers/CampaignUserController.php';
+
+$auth = new AuthMiddleware();
+
+$auth->proteger();
+
+$usuario = $auth->usuario();
+
+if ($usuario === null) {
+    header('Location: login.php');
+    exit;
+}
+
+$tenantId = (int) $usuario['tenant_id'];
+
+$campaignId = isset($_GET['id'])
+    ? (int) $_GET['id']
+    : 0;
+
+if ($campaignId <= 0) {
+    header('Location: campaigns.php');
+    exit;
+}
+
+$campaignController = new CampaignController();
+
+$campaign = $campaignController->show(
+    $tenantId,
+    $campaignId
+);
+
+if ($campaign === null) {
+    header('Location: campaigns.php');
+    exit;
+}
+
+$campaignUserController = new CampaignUserController();
+
+$mensaje = null;
+$tipoMensaje = null;
+
+/*
+ * Procesar asignación de agente.
+ */
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    $userId = isset($_POST['user_id'])
+        ? (int) $_POST['user_id']
+        : 0;
+
+    if ($userId <= 0) {
+
+        $mensaje = 'Debe seleccionar un agente.';
+        $tipoMensaje = 'error';
+
+    } else {
+
+        $resultado = $campaignUserController->store(
+            $tenantId,
+            $campaignId,
+            $userId
+        );
+
+        $mensaje = $resultado['message'];
+
+        $tipoMensaje = $resultado['success']
+            ? 'success'
+            : 'error';
+    }
+}
+
+/*
+ * Obtener agentes asignados.
+ */
+$agentesAsignados = $campaignUserController->index(
+    $tenantId,
+    $campaignId
+);
+
+/*
+ * Obtener agentes disponibles.
+ */
+$agentesDisponibles = $campaignUserController->agentesDisponibles(
+    $tenantId,
+    $campaignId
+);
+
+require_once __DIR__ . '/views/campaigns/agents.php'; 
+============================================================ 
+ARCHIVO: campaign_create.php 
+============================================================ 
+<?php
+
+require_once __DIR__ . '/services/AuthMiddleware.php';
+require_once __DIR__ . '/controllers/CampaignController.php';
+
+$auth = new AuthMiddleware();
+
+$auth->proteger();
+
+$usuario = $auth->usuario();
+
+if ($usuario === null) {
+    header('Location: login.php');
+    exit;
+}
+
+$tenantId = (int) $usuario['tenant_id'];
+$userId = (int) $usuario['id'];
+
+$controller = new CampaignController();
+
+$message = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    $name = $_POST['name'] ?? '';
+    $slug = $_POST['slug'] ?? '';
+    $description = $_POST['description'] ?? null;
+    $startDate = $_POST['start_date'] ?? null;
+    $endDate = $_POST['end_date'] ?? null;
+
+    $resultado = $controller->store(
+        $tenantId,
+        $name,
+        $slug,
+        $description,
+        $startDate,
+        $endDate,
+        $userId
+    );
+
+    $message = $resultado['message'];
+
+    if ($resultado['success']) {
+        header('Location: campaigns.php');
+        exit;
+    }
+}
+
+require_once __DIR__ . '/views/campaigns/create.php'; 
+============================================================ 
+ARCHIVO: campaign_edit.php 
+============================================================ 
+<?php
+
+require_once __DIR__ . '/services/AuthMiddleware.php';
+require_once __DIR__ . '/controllers/CampaignController.php';
+
+$auth = new AuthMiddleware();
+
+$auth->proteger();
+
+$usuario = $auth->usuario();
+
+if ($usuario === null) {
+    header('Location: login.php');
+    exit;
+}
+
+$tenantId = (int) $usuario['tenant_id'];
+
+$controller = new CampaignController();
+
+$id = isset($_GET['id'])
+    ? (int) $_GET['id']
+    : 0;
+
+if ($id <= 0) {
+    header('Location: campaigns.php');
+    exit;
+}
+
+// Obtener la campaña perteneciente a la empresa del usuario.
+$campaign = $controller->show(
+    $tenantId,
+    $id
+);
+
+if ($campaign === null) {
+    header('Location: campaigns.php');
+    exit;
+}
+
+$message = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    $name = $_POST['name'] ?? '';
+    $slug = $_POST['slug'] ?? '';
+    $description = $_POST['description'] ?? null;
+    $startDate = $_POST['start_date'] ?? null;
+    $endDate = $_POST['end_date'] ?? null;
+
+    $resultado = $controller->update(
+        $tenantId,
+        $id,
+        $name,
+        $slug,
+        $description,
+        $startDate,
+        $endDate
+    );
+
+    $message = $resultado['message'];
+
+    if ($resultado['success']) {
+
+        header(
+            'Location: campaigns.php'
+        );
+
+        exit;
+    }
+
+    // Si hubo un error, volvemos a mostrar
+    // los valores enviados en el formulario.
+    $campaign['name'] = $name;
+    $campaign['slug'] = $slug;
+    $campaign['description'] = $description;
+    $campaign['start_date'] = $startDate;
+    $campaign['end_date'] = $endDate;
+}
+
+require_once __DIR__ . '/views/campaigns/edit.php'; 
+============================================================ 
+ARCHIVO: campaign_status.php 
+============================================================ 
+<?php
+
+require_once __DIR__ . '/services/AuthMiddleware.php';
+require_once __DIR__ . '/controllers/CampaignController.php';
+
+$auth = new AuthMiddleware();
+
+$auth->proteger();
+
+$usuario = $auth->usuario();
+
+if ($usuario === null) {
+    header('Location: login.php');
+    exit;
+}
+
+$tenantId = (int) $usuario['tenant_id'];
+
+$controller = new CampaignController();
+
+$id = isset($_GET['id'])
+    ? (int) $_GET['id']
+    : 0;
+
+$status = $_GET['status'] ?? '';
+
+if ($id <= 0) {
+    header('Location: campaigns.php');
+    exit;
+}
+
+if (!in_array($status, ['ACTIVE', 'INACTIVE'], true)) {
+    header('Location: campaigns.php');
+    exit;
+}
+
+$resultado = $controller->cambiarEstado(
+    $tenantId,
+    $id,
+    $status
+);
+
+// Por ahora volvemos directamente al listado.
+header('Location: campaigns.php');
+
+exit; 
+============================================================ 
+ARCHIVO: dashboard.php 
+============================================================ 
+<?php
+
+require_once __DIR__ . '/services/AuthMiddleware.php';
+
+$middleware = new AuthMiddleware();
+
+$middleware->requierePermiso('dashboard.view');
+
+$usuario = $middleware->usuario();
+
+?>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - CallAudit</title>
+</head>
+<body>
+
+    <h1>CallAudit</h1>
+
+    <h2>Dashboard</h2>
+
+    <?php if ($usuario !== null): ?>
+
+        <p>
+            Bienvenido,
+            <strong>
+                <?= htmlspecialchars($usuario['name']) ?>
+            </strong>
+        </p>
+
+        <hr>
+
+        <p>
+            <strong>ID de usuario:</strong>
+            <?= htmlspecialchars((string) $usuario['id']) ?>
+        </p>
+
+        <p>
+            <strong>Correo:</strong>
+            <?= htmlspecialchars($usuario['email']) ?>
+        </p>
+
+        <p>
+            <strong>Tenant ID:</strong>
+            <?= htmlspecialchars(
+                $usuario['tenant_id'] !== null
+                    ? (string) $usuario['tenant_id']
+                    : 'NULL'
+            ) ?>
+        </p>
+
+        <p>
+            <strong>Estado:</strong>
+            <?= htmlspecialchars($usuario['status']) ?>
+        </p>
+
+        <hr>
+
+        <p>
+            <a href="logout.php">Cerrar sesión</a>
+        </p>
+
+    <?php endif; ?>
+
+</body>
+</html> 
+============================================================ 
+ARCHIVO: login.php 
+============================================================ 
+<?php
+
+require_once __DIR__ . '/services/AuthService.php';
+require_once __DIR__ . '/services/SessionService.php';
+
+$auth = new AuthService();
+$session = new SessionService();
+
+if ($session->estaAutenticado()) {
+    header('Location: dashboard.php');
+    exit;
+}
+
+$message = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    $email = trim($_POST['email'] ?? '');
+    $password = $_POST['password'] ?? '';
+
+    if ($email === '' || $password === '') {
+
+        $message = 'El correo electrónico y la contraseña son obligatorios.';
+
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+
+        $message = 'El correo electrónico no es válido.';
+
+    } else {
+
+        $user = $auth->autenticar(
+            $email,
+            $password
+        );
+
+        if ($user === null) {
+
+            $message = 'Correo electrónico o contraseña incorrectos.';
+
+        } else {
+
+            $session->iniciarSesion($user);
+
+            header('Location: dashboard.php');
+            exit;
+        }
+    }
+}
+?>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar sesión - CallAudit</title>
+</head>
+<body>
+
+    <h1>CallAudit</h1>
+
+    <h2>Iniciar sesión</h2>
+
+    <?php if ($message !== ''): ?>
+
+        <p>
+            <strong>
+                <?= htmlspecialchars($message) ?>
+            </strong>
+        </p>
+
+    <?php endif; ?>
+
+    <form method="POST">
+
+        <div>
+            <label for="email">
+                Correo electrónico:
+            </label>
+
+            <br>
+
+            <input
+                type="email"
+                name="email"
+                id="email"
+                value="<?= htmlspecialchars($_POST['email'] ?? '') ?>"
+                required
+                autocomplete="username"
+            >
+        </div>
+
+        <br>
+
+        <div>
+            <label for="password">
+                Contraseña:
+            </label>
+
+            <br>
+
+            <input
+                type="password"
+                name="password"
+                id="password"
+                required
+                autocomplete="current-password"
+            >
+        </div>
+
+        <br>
+
+        <button type="submit">
+            Iniciar sesión
+        </button>
+
+    </form>
+
+</body>
+</html> 
+============================================================ 
+ARCHIVO: logout.php 
+============================================================ 
+<?php
+
+require_once __DIR__ . '/services/SessionService.php';
+
+$session = new SessionService();
+
+$session->cerrarSesion();
+
+header('Location: login.php');
+exit; 
+============================================================ 
+ARCHIVO: tenants.php 
+============================================================ 
+<?php
+// Este archivo se encarga de mostrar el listado
+//Cargamos el controlador
+require_once __DIR__ . '/controllers/TenantController.php';
+
+$controller = new TenantController();
+
+// Obtiene las empresas
+$tenants = $controller->index();
+
+// Finalmente manda los datos a la vista.
+require_once __DIR__ . '/views/tenants/index.php'; 
+============================================================ 
+ARCHIVO: tenant_create.php 
+============================================================ 
+<?php
+// Carga el controlador
+require_once __DIR__ . '/controllers/TenantController.php';
+// Creamos nestro controlador
+$controller = new TenantController();
+
+$message = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') { // preguntamos: ¿El usuario acaba de enviar el formulario? Si es así:
+    // obtenemos los valores enviados.
+    $name = $_POST['name'] ?? '';
+    $slug = $_POST['slug'] ?? '';
+
+    // mandamos los datos al Controller.
+    $result = $controller->store($name, $slug);
+
+    $message = $result['message'];
+
+    // Si la creación fue correcta: redirigimos al listado.
+    if ($result['success']) {
+        header('Location: tenants.php');
+        exit;
+    }
+}
+
+// cargamos la vista
+require_once __DIR__ . '/views/tenants/create.php'; 
+============================================================ 
+ARCHIVO: users.php 
+============================================================ 
+<?php
+
+require_once __DIR__ . '/controllers/UserController.php';
+
+$controller = new UserController();
+
+$users = $controller->index(); // Llama al objeto index del controlador UserController.php quien enviara la informacion de los usuarios obtenida desde el modelo
+
+// y luego envía esa información a: require_once __DIR__ . '/views/users/index.php';
+require_once __DIR__ . '/views/users/index.php';
+
+// Por eso en la vista podemos utilizar: $users sin hacer ninguna consulta SQL desde la vista.
+
+/*
+
+El recorrido:  EN LA VISTA  :  require_once __DIR__ . '/views/users/index.php';
+
+foreach ($users as $user)
+
+genera una fila por cada usuario.
+
+Y algo importante:
+
+htmlspecialchars($user['name'])
+
+protege la salida HTML frente a contenido que pudiera interpretarse como código HTML/JavaScript.
+
+*/ 
+============================================================ 
+ARCHIVO: user_create.php 
+============================================================ 
+<?php
+
+require_once __DIR__ . '/controllers/UserController.php';
+require_once __DIR__ . '/models/Tenant.php';
+
+$controller = new UserController();
+$tenantModel = new Tenant();
+
+$tenants = $tenantModel->listar();
+
+$message = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    $tenantId = (int) ($_POST['tenant_id'] ?? 0);
+    $name = $_POST['name'] ?? '';
+    $email = $_POST['email'] ?? '';
+    $password = $_POST['password'] ?? '';
+
+    $result = $controller->store(
+        $tenantId,
+        $name,
+        $email,
+        $password
+    );
+
+    $message = $result['message'];
+
+    if ($result['success']) {
+        header('Location: users.php');
+        exit;
+    }
+}
+
+require_once __DIR__ . '/views/users/create.php';

@@ -1,0 +1,1147 @@
+ 
+============================================================ 
+ARCHIVO: models\Campaign.php 
+============================================================ 
+<?php
+// Carga la conexion
+require_once __DIR__ . '/../config/database.php';
+
+class Campaign
+{
+    private ?PDO $db;
+
+    // Constructor para conectarse a la base de datos.
+    public function __construct()
+    {
+        $database = new Database();
+
+        $this->db = $database->connect();
+    }
+
+    // Este metodo tiene como función obtener todas las campañas de una empresa.
+    public function listar(int $tenantId): array
+    {
+        if ($this->db === null) {
+            return [];
+        }
+
+        $sql = "SELECT
+                    id,
+                    tenant_id,
+                    name,
+                    slug,
+                    description,
+                    status,
+                    start_date,
+                    end_date,
+                    created_by,
+                    created_at,
+                    updated_at
+                FROM campaigns
+                WHERE tenant_id = :tenant_id
+                ORDER BY id DESC";
+
+        $stmt = $this->db->prepare($sql);
+
+        $stmt->execute([
+            ':tenant_id' => $tenantId
+        ]);
+
+        return $stmt->fetchAll();
+    }
+
+    // Este método sirve para comprobar si ya existe una campaña
+    // con determinado slug dentro de una empresa.
+    public function existeSlug(int $tenantId, string $slug): bool
+    {
+        if ($this->db === null) {
+            return false;
+        }
+
+        $sql = "SELECT id
+                FROM campaigns
+                WHERE tenant_id = :tenant_id
+                  AND slug = :slug
+                LIMIT 1";
+
+        $stmt = $this->db->prepare($sql);
+
+        $stmt->execute([
+            ':tenant_id' => $tenantId,
+            ':slug' => $slug
+        ]);
+
+        return $stmt->fetch() !== false;
+    }
+
+    // Este método comprueba si un slug ya pertenece a otra campaña
+    // de la misma empresa.
+    // Se utiliza cuando estamos editando una campaña.
+    public function existeSlugExceptoId(
+        int $tenantId,
+        string $slug,
+        int $id
+    ): bool {
+
+        if ($this->db === null) {
+            return false;
+        }
+
+        $sql = "SELECT id
+                FROM campaigns
+                WHERE tenant_id = :tenant_id
+                  AND slug = :slug
+                  AND id <> :id
+                LIMIT 1";
+
+        $stmt = $this->db->prepare($sql);
+
+        $stmt->execute([
+            ':tenant_id' => $tenantId,
+            ':slug' => $slug,
+            ':id' => $id
+        ]);
+
+        return $stmt->fetch() !== false;
+    }
+
+    // Este método nos permite comprobar una campaña por ID
+    // perteneciente a una empresa determinada.
+    public function obtenerPorId(int $tenantId, int $id): ?array
+    {
+        if ($this->db === null) {
+            return null;
+        }
+
+        $sql = "SELECT
+                    id,
+                    tenant_id,
+                    name,
+                    slug,
+                    description,
+                    status,
+                    start_date,
+                    end_date,
+                    created_by,
+                    created_at,
+                    updated_at
+                FROM campaigns
+                WHERE id = :id
+                  AND tenant_id = :tenant_id
+                LIMIT 1";
+
+        $stmt = $this->db->prepare($sql);
+
+        $stmt->execute([
+            ':id' => $id,
+            ':tenant_id' => $tenantId
+        ]);
+
+        $campaign = $stmt->fetch();
+
+        if ($campaign === false) {
+            return null;
+        }
+
+        return $campaign;
+    }
+
+    // Este método inserta una nueva campaña.
+    public function crear(
+        int $tenantId,
+        string $name,
+        string $slug,
+        ?string $description,
+        ?string $startDate,
+        ?string $endDate,
+        ?int $createdBy
+    ): bool {
+        if ($this->db === null) {
+            return false;
+        }
+
+        try {
+
+            $sql = "INSERT INTO campaigns
+                        (
+                            tenant_id,
+                            name,
+                            slug,
+                            description,
+                            status,
+                            start_date,
+                            end_date,
+                            created_by
+                        )
+                    VALUES
+                        (
+                            :tenant_id,
+                            :name,
+                            :slug,
+                            :description,
+                            'ACTIVE',
+                            :start_date,
+                            :end_date,
+                            :created_by
+                        )";
+
+            $stmt = $this->db->prepare($sql);
+
+            $stmt->execute([
+                ':tenant_id' => $tenantId,
+                ':name' => $name,
+                ':slug' => $slug,
+                ':description' => $description,
+                ':start_date' => $startDate,
+                ':end_date' => $endDate,
+                ':created_by' => $createdBy
+            ]);
+
+            return true;
+
+        } catch (PDOException $e) {
+
+            return false;
+        }
+    }
+
+
+    // Este método actualiza una campaña existente.
+    public function actualizar(
+        int $tenantId,
+        int $id,
+        string $name,
+        string $slug,
+        ?string $description,
+        ?string $startDate,
+        ?string $endDate
+    ): bool {
+
+        if ($this->db === null) {
+            return false;
+        }
+
+        try {
+
+            $sql = "UPDATE campaigns
+                    SET
+                        name = :name,
+                        slug = :slug,
+                        description = :description,
+                        start_date = :start_date,
+                        end_date = :end_date
+                    WHERE id = :id
+                      AND tenant_id = :tenant_id";
+
+            $stmt = $this->db->prepare($sql);
+
+            $stmt->execute([
+                ':name' => $name,
+                ':slug' => $slug,
+                ':description' => $description,
+                ':start_date' => $startDate,
+                ':end_date' => $endDate,
+                ':id' => $id,
+                ':tenant_id' => $tenantId
+            ]);
+
+            return true;
+
+        } catch (PDOException $e) {
+
+            return false;
+        }
+    }
+
+
+    // Este método cambia el estado de una campaña.
+    // El tenant_id garantiza el aislamiento entre empresas.
+    public function cambiarEstado(
+        int $tenantId,
+        int $id,
+        string $status
+    ): bool {
+
+        if ($this->db === null) {
+            return false;
+        }
+
+        try {
+
+            $sql = "UPDATE campaigns
+                    SET status = :status
+                    WHERE id = :id
+                      AND tenant_id = :tenant_id";
+
+            $stmt = $this->db->prepare($sql);
+
+            $stmt->execute([
+                ':status' => $status,
+                ':id' => $id,
+                ':tenant_id' => $tenantId
+            ]);
+
+            return $stmt->rowCount() > 0;
+
+        } catch (PDOException $e) {
+
+            return false;
+        }
+    }
+
+
+} 
+============================================================ 
+ARCHIVO: models\CampaignUser.php 
+============================================================ 
+<?php
+
+require_once __DIR__ . '/../config/database.php';
+
+class CampaignUser
+{
+    private ?PDO $db;
+
+    public function __construct()
+    {
+        $database = new Database();
+        $this->db = $database->connect();
+    }
+
+    /**
+     * Listar agentes asignados a una campaña.
+     */
+    public function listarPorCampania(
+        int $tenantId,
+        int $campaignId
+    ): array {
+        if ($this->db === null) {
+            return [];
+        }
+
+        $sql = "SELECT
+                    cu.id,
+                    cu.tenant_id,
+                    cu.campaign_id,
+                    cu.user_id,
+                    cu.status,
+                    cu.assigned_at,
+                    u.name,
+                    u.email
+                FROM campaign_users cu
+                INNER JOIN users u
+                    ON u.id = cu.user_id
+                   AND u.tenant_id = cu.tenant_id
+                WHERE cu.tenant_id = :tenant_id
+                  AND cu.campaign_id = :campaign_id
+                ORDER BY u.name ASC";
+
+        $stmt = $this->db->prepare($sql);
+
+        $stmt->execute([
+            ':tenant_id' => $tenantId,
+            ':campaign_id' => $campaignId
+        ]);
+
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Verificar si ya existe una asignación.
+     */
+    public function existeAsignacion(
+        int $tenantId,
+        int $campaignId,
+        int $userId
+    ): bool {
+        if ($this->db === null) {
+            return false;
+        }
+
+        $sql = "SELECT id
+                FROM campaign_users
+                WHERE tenant_id = :tenant_id
+                  AND campaign_id = :campaign_id
+                  AND user_id = :user_id
+                LIMIT 1";
+
+        $stmt = $this->db->prepare($sql);
+
+        $stmt->execute([
+            ':tenant_id' => $tenantId,
+            ':campaign_id' => $campaignId,
+            ':user_id' => $userId
+        ]);
+
+        return $stmt->fetch() !== false;
+    }
+
+    /**
+     * Asignar un agente a una campaña.
+     */
+    public function asignar(
+        int $tenantId,
+        int $campaignId,
+        int $userId
+    ): bool {
+        if ($this->db === null) {
+            return false;
+        }
+
+        try {
+            $sql = "INSERT INTO campaign_users
+                    (
+                        tenant_id,
+                        campaign_id,
+                        user_id,
+                        status,
+                        assigned_at
+                    )
+                    VALUES
+                    (
+                        :tenant_id,
+                        :campaign_id,
+                        :user_id,
+                        'ACTIVE',
+                        CURRENT_TIMESTAMP
+                    )";
+
+            $stmt = $this->db->prepare($sql);
+
+            $stmt->execute([
+                ':tenant_id' => $tenantId,
+                ':campaign_id' => $campaignId,
+                ':user_id' => $userId
+            ]);
+
+            return true;
+
+        } catch (PDOException $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Cambiar estado de una asignación.
+     */
+    public function cambiarEstado(
+        int $tenantId,
+        int $campaignUserId,
+        string $status
+    ): bool {
+        if ($this->db === null) {
+            return false;
+        }
+
+        $sql = "UPDATE campaign_users
+                SET status = :status
+                WHERE id = :id
+                  AND tenant_id = :tenant_id";
+
+        $stmt = $this->db->prepare($sql);
+
+        $stmt->execute([
+            ':status' => $status,
+            ':id' => $campaignUserId,
+            ':tenant_id' => $tenantId
+        ]);
+
+        return $stmt->rowCount() > 0;
+    }
+
+    /**
+     * Listar agentes activos del tenant que todavía
+     * no están asignados a la campaña.
+     */
+    public function listarAgentesDisponibles(
+        int $tenantId,
+        int $campaignId
+    ): array {
+        if ($this->db === null) {
+            return [];
+        }
+
+        $sql = "SELECT
+                    u.id,
+                    u.name,
+                    u.email
+                FROM users u
+                INNER JOIN user_roles ur
+                    ON ur.user_id = u.id
+                INNER JOIN roles r
+                    ON r.id = ur.role_id
+                WHERE u.tenant_id = :user_tenant_id
+                  AND r.tenant_id = :role_tenant_id
+                  AND r.slug = 'AGENTE'
+                  AND u.status = 'ACTIVE'
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM campaign_users cu
+                      WHERE cu.tenant_id = :cu_tenant_id
+                        AND cu.campaign_id = :campaign_id
+                        AND cu.user_id = u.id
+                  )
+                ORDER BY u.name ASC";
+
+        $stmt = $this->db->prepare($sql);
+
+        $stmt->execute([
+            ':user_tenant_id' => $tenantId,
+            ':role_tenant_id' => $tenantId,
+            ':cu_tenant_id' => $tenantId,
+            ':campaign_id' => $campaignId
+        ]);
+
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Verificar que un usuario:
+     * - pertenezca al tenant
+     * - esté activo
+     * - tenga el rol AGENTE
+     * - no esté actualmente asignado a la campaña
+     */
+    public function esAgenteDisponible(
+        int $tenantId,
+        int $campaignId,
+        int $userId
+    ): bool {
+        if ($this->db === null) {
+            return false;
+        }
+
+        $sql = "SELECT u.id
+                FROM users u
+                INNER JOIN user_roles ur
+                    ON ur.user_id = u.id
+                INNER JOIN roles r
+                    ON r.id = ur.role_id
+                WHERE u.id = :user_id
+                  AND u.tenant_id = :user_tenant_id
+                  AND u.status = 'ACTIVE'
+                  AND r.tenant_id = :role_tenant_id
+                  AND r.slug = 'AGENTE'
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM campaign_users cu
+                      WHERE cu.tenant_id = :cu_tenant_id
+                        AND cu.campaign_id = :campaign_id
+                        AND cu.user_id = :user_id_check
+                  )
+                LIMIT 1";
+
+        $stmt = $this->db->prepare($sql);
+
+        $stmt->execute([
+            ':user_id' => $userId,
+            ':user_tenant_id' => $tenantId,
+            ':role_tenant_id' => $tenantId,
+            ':cu_tenant_id' => $tenantId,
+            ':campaign_id' => $campaignId,
+            ':user_id_check' => $userId
+        ]);
+
+        return $stmt->fetch() !== false;
+    }
+
+    
+} 
+============================================================ 
+ARCHIVO: models\Permission.php 
+============================================================ 
+<?php
+
+require_once __DIR__ . '/../config/database.php';
+
+class Permission
+{
+    private ?PDO $db;
+
+    public function __construct()
+    {
+        $database = new Database();
+
+        $this->db = $database->connect();
+    }
+
+    public function listar(): array
+    {
+        if ($this->db === null) {
+            return [];
+        }
+
+        $sql = "SELECT
+                    id,
+                    name,
+                    slug,
+                    description,
+                    status,
+                    created_at,
+                    updated_at
+                FROM permissions
+                ORDER BY id ASC";
+
+        $stmt = $this->db->query($sql);
+
+        return $stmt->fetchAll();
+    }
+
+    public function obtenerPorSlug(string $slug): ?array
+    {
+        if ($this->db === null) {
+            return null;
+        }
+
+        $sql = "SELECT
+                    id,
+                    name,
+                    slug,
+                    description,
+                    status
+                FROM permissions
+                WHERE slug = :slug
+                LIMIT 1";
+
+        $stmt = $this->db->prepare($sql);
+
+        $stmt->execute([
+            ':slug' => $slug
+        ]);
+
+        $permission = $stmt->fetch();
+
+        if ($permission === false) {
+            return null;
+        }
+
+        return $permission;
+    }
+} 
+============================================================ 
+ARCHIVO: models\Role.php 
+============================================================ 
+<?php
+
+require_once __DIR__ . '/../config/database.php';
+
+class Role
+{
+    private ?PDO $db;
+
+    public function __construct()
+    {
+        $database = new Database();
+
+        $this->db = $database->connect();
+    }
+
+    public function listarPorTenant(?int $tenantId): array
+    {
+        if ($this->db === null) {
+            return [];
+        }
+
+        if ($tenantId === null) {
+
+            $sql = "SELECT
+                        id,
+                        tenant_id,
+                        name,
+                        slug,
+                        description,
+                        status,
+                        created_at,
+                        updated_at
+                    FROM roles
+                    WHERE tenant_id IS NULL
+                    ORDER BY id ASC";
+
+            $stmt = $this->db->query($sql);
+
+            return $stmt->fetchAll();
+        }
+
+        $sql = "SELECT
+                    id,
+                    tenant_id,
+                    name,
+                    slug,
+                    description,
+                    status,
+                    created_at,
+                    updated_at
+                FROM roles
+                WHERE tenant_id = :tenant_id
+                ORDER BY id ASC";
+
+        $stmt = $this->db->prepare($sql);
+
+        $stmt->execute([
+            ':tenant_id' => $tenantId
+        ]);
+
+        return $stmt->fetchAll();
+    }
+
+    public function obtenerPorId(int $id): ?array
+    {
+        if ($this->db === null) {
+            return null;
+        }
+
+        $sql = "SELECT
+                    id,
+                    tenant_id,
+                    name,
+                    slug,
+                    description,
+                    status
+                FROM roles
+                WHERE id = :id
+                LIMIT 1";
+
+        $stmt = $this->db->prepare($sql);
+
+        $stmt->execute([
+            ':id' => $id
+        ]);
+
+        $role = $stmt->fetch();
+
+        if ($role === false) {
+            return null;
+        }
+
+        return $role;
+    }
+
+    public function listarPorUsuario(int $userId): array
+    {
+        if ($this->db === null) {
+            return [];
+        }
+
+        $sql = "SELECT
+                    r.id,
+                    r.tenant_id,
+                    r.name,
+                    r.slug,
+                    r.description,
+                    r.status
+                FROM roles r
+                INNER JOIN user_roles ur
+                    ON ur.role_id = r.id
+                WHERE ur.user_id = :user_id
+                AND r.status = 'ACTIVE'
+                ORDER BY r.id ASC";
+
+        $stmt = $this->db->prepare($sql);
+
+        $stmt->execute([
+            ':user_id' => $userId
+        ]);
+
+        return $stmt->fetchAll();
+    }
+
+    public function puedeAsignarseAUsuario( //valida que el rol sea compatible con el usuario.
+        int $userId,
+        int $roleId
+    ): bool {
+        if ($this->db === null) {
+            return false;
+        }
+
+        /*
+         * Obtener información del usuario.
+         */
+
+        $sqlUser = "SELECT
+                        id,
+                        tenant_id,
+                        status
+                    FROM users
+                    WHERE id = :user_id
+                    LIMIT 1";
+
+        $stmtUser = $this->db->prepare($sqlUser);
+
+        $stmtUser->execute([
+            ':user_id' => $userId
+        ]);
+
+        $user = $stmtUser->fetch();
+
+        if ($user === false) {
+            return false;
+        }
+
+        if ($user['status'] !== 'ACTIVE') {
+            return false;
+        }
+
+        /*
+         * Obtener información del rol.
+         */
+
+        $sqlRole = "SELECT
+                        id,
+                        tenant_id,
+                        slug,
+                        status
+                    FROM roles
+                    WHERE id = :role_id
+                    LIMIT 1";
+
+        $stmtRole = $this->db->prepare($sqlRole);
+
+        $stmtRole->execute([
+            ':role_id' => $roleId
+        ]);
+
+        $role = $stmtRole->fetch();
+
+        if ($role === false) {
+            return false;
+        }
+
+        if ($role['status'] !== 'ACTIVE') {
+            return false;
+        }
+
+        /*
+         * Un rol global solamente puede asignarse
+         * a un usuario global.
+         *
+         * Un rol de empresa solamente puede asignarse
+         * a un usuario de esa misma empresa.
+         */
+
+        if ($role['tenant_id'] === null) {
+
+            if ($user['tenant_id'] === null) {
+                return true;
+            }
+
+            return false;
+        }
+
+        if ($user['tenant_id'] === null) {
+            return false;
+        }
+
+        return (int) $role['tenant_id'] === (int) $user['tenant_id'];
+    }
+
+    public function asignarAUsuario( // realiza la asignación.
+        int $userId,
+        int $roleId
+    ): bool {
+        if ($this->db === null) {
+            return false;
+        }
+
+        if (!$this->puedeAsignarseAUsuario($userId, $roleId)) {
+            return false;
+        }
+
+        $sql = "INSERT INTO user_roles
+                    (user_id, role_id)
+                VALUES
+                    (:user_id, :role_id)";
+
+        try {
+
+            $stmt = $this->db->prepare($sql);
+
+            return $stmt->execute([
+                ':user_id' => $userId,
+                ':role_id' => $roleId
+            ]);
+
+        } catch (PDOException $e) {
+
+            return false;
+        }
+    }
+} 
+============================================================ 
+ARCHIVO: models\Tenant.php 
+============================================================ 
+<?php
+// Carga la conexion
+require_once __DIR__ . '/../config/database.php';
+
+class Tenant
+{
+    private ?PDO $db;
+
+// Constructor para conectarse a la base de datos.
+    public function __construct()
+    {
+        $database = new Database();
+
+        $this->db = $database->connect();
+    }
+
+// Este metodo su función es obtener todas las empresas.
+    public function listar(): array
+    {
+        if ($this->db === null) {
+            return [];
+        }
+
+        $sql = "SELECT
+                    id,
+                    name,
+                    slug,
+                    status,
+                    created_at,
+                    updated_at
+                FROM tenants
+                ORDER BY id DESC";
+
+        $stmt = $this->db->query($sql);
+
+        return $stmt->fetchAll();
+    }
+
+// Este método sirve para comprobar si ya existe una empresa con determinado slug.
+    public function existeSlug(string $slug): bool
+    {
+        if ($this->db === null) {
+            return false;
+        }
+
+        $sql = "SELECT id
+                FROM tenants
+                WHERE slug = :slug
+                LIMIT 1";
+
+        $stmt = $this->db->prepare($sql);
+
+        $stmt->execute([
+            ':slug' => $slug
+        ]);
+
+        return $stmt->fetch() !== false;
+    }
+
+// Este método nos permite comprobar una empresa por ID.
+    public function obtenerPorId(int $id): ?array
+    {
+    if ($this->db === null) {
+        return null;
+    }
+
+    $sql = "SELECT
+                id,
+                name,
+                slug,
+                status
+            FROM tenants
+            WHERE id = :id
+            LIMIT 1";
+
+    $stmt = $this->db->prepare($sql);
+
+    $stmt->execute([
+        ':id' => $id
+    ]);
+
+    $tenant = $stmt->fetch();
+
+    if ($tenant === false) {
+        return null;
+    }
+
+    return $tenant;
+    }
+
+// Este método inserta una nueva empresa
+    public function crear(string $name, string $slug): bool
+    {
+        if ($this->db === null) {
+            return false;
+        }
+
+        try {
+
+            $this->db->beginTransaction(); // abre una transacción "Empiezo a trabajar.". "Voy a realizar varias operaciones. Todavía no quiero que este conjunto de cambios quede confirmado definitivamente."
+
+            // Crear empresa
+            $sqlTenant = "INSERT INTO tenants
+                            (name, slug, status)
+                          VALUES
+                            (:name, :slug, 'ACTIVE')";
+
+            $stmtTenant = $this->db->prepare($sqlTenant);
+
+            $stmtTenant->execute([
+                ':name' => $name,
+                ':slug' => $slug
+            ]);
+
+            $tenantId = (int) $this->db->lastInsertId();
+
+            // Roles base de la empresa
+            $roles = [
+                [
+                    'name' => 'Administrador',
+                    'slug' => 'ADMIN',
+                    'description' => 'Administrador de la empresa.'
+                ],
+                [
+                    'name' => 'Supervisor',
+                    'slug' => 'SUPERVISOR',
+                    'description' => 'Supervisor de la empresa.'
+                ],
+                [
+                    'name' => 'Auditor',
+                    'slug' => 'AUDITOR',
+                    'description' => 'Auditor de llamadas y evaluaciones.'
+                ],
+                [
+                    'name' => 'Agente',
+                    'slug' => 'AGENTE',
+                    'description' => 'Usuario operativo de la empresa.'
+                ]
+            ];
+
+            $sqlRole = "INSERT INTO roles
+                            (tenant_id, name, slug, description, status)
+                        VALUES
+                            (:tenant_id, :name, :slug, :description, 'ACTIVE')";
+
+            $stmtRole = $this->db->prepare($sqlRole);
+
+            foreach ($roles as $role) {
+
+                $stmtRole->execute([
+                    ':tenant_id' => $tenantId,
+                    ':name' => $role['name'],
+                    ':slug' => $role['slug'],
+                    ':description' => $role['description']
+                ]);
+            }
+
+            $this->db->commit(); // "Todo está correcto. GUARDAR." confirma toda la transaccion.
+
+            return true;
+
+        } catch (PDOException $e) {
+
+            if ($this->db->inTransaction()) { // "¿Actualmente esta conexión está dentro de una transacción?"
+                $this->db->rollBack(); // "Algo salió mal. DESHACER TODO." Si ocurre un error deshace todo.
+            }
+
+            return false;
+        }
+    }
+
+
+} 
+============================================================ 
+ARCHIVO: models\User.php 
+============================================================ 
+<?php
+// Cargamos la conexion
+require_once __DIR__ . '/../config/database.php';
+
+class User
+{
+    private ?PDO $db; // almacena la conexión.
+
+    public function __construct()
+    {
+        $database = new Database();
+
+        $this->db = $database->connect(); // obtiene la conexión a MariaDB y la almacena.
+    }
+
+    public function listar(): array // Lista usuarios de cada empresa
+    {
+        if ($this->db === null) {
+            return [];
+        }
+
+        $sql = "SELECT
+                    u.id,
+                    u.tenant_id,
+                    t.name AS tenant_name,
+                    u.name,
+                    u.email,
+                    u.status,
+                    u.created_at,
+                    u.updated_at
+                FROM users u
+                INNER JOIN tenants t
+                    ON t.id = u.tenant_id
+                ORDER BY u.id DESC";
+
+        $stmt = $this->db->query($sql);
+
+        return $stmt->fetchAll();
+    }
+
+    public function existeEmail(int $tenantId, string $email): bool // Validamos que no se repitan usuarios con mismo correo en una empresa
+    {
+        if ($this->db === null) {
+            return false;
+        }
+
+        $sql = "SELECT id
+                FROM users
+                WHERE tenant_id = :tenant_id
+                AND email = :email
+                LIMIT 1";
+
+        $stmt = $this->db->prepare($sql);
+
+        $stmt->execute([
+            ':tenant_id' => $tenantId,
+            ':email' => $email
+        ]);
+
+        return $stmt->fetch() !== false;
+    }
+
+    public function crear(
+    int $tenantId,
+    string $name,
+    string $email,
+    string $password
+    ): bool {
+        if ($this->db === null) {
+            return false;
+        }
+
+        $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+
+        $sql = "INSERT INTO users
+                    (tenant_id, name, email, password, status)
+                VALUES
+                    (:tenant_id, :name, :email, :password, 'ACTIVE')";
+
+        try {
+
+            $stmt = $this->db->prepare($sql);
+
+            return $stmt->execute([
+                ':tenant_id' => $tenantId,
+                ':name' => $name,
+                ':email' => $email,
+                ':password' => $passwordHash
+            ]);
+
+        } catch (PDOException $e) {
+
+            return false;
+        }
+    }
+
+
+
+    
+}

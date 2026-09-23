@@ -1,0 +1,1070 @@
+ 
+============================================================ 
+ARCHIVO: D:\Xampp\htdocs\callaudit\views\campaigns\agents.php 
+============================================================ 
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <title>
+        Agentes de campaña
+    </title>
+
+    <style>
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 30px;
+            background: #f7f7f7;
+        }
+
+        h1 {
+            margin-bottom: 5px;
+        }
+
+        h2 {
+            margin-top: 30px;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: auto;
+        }
+
+        .campaign-info {
+            background: #ffffff;
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+        }
+
+        .panel {
+            background: #ffffff;
+            padding: 20px;
+            margin-top: 20px;
+            border: 1px solid #ddd;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: bold;
+        }
+
+        select {
+            width: 100%;
+            max-width: 500px;
+            padding: 9px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            padding: 10px 18px;
+            border: none;
+            cursor: pointer;
+            background: #333;
+            color: white;
+        }
+
+        button:hover {
+            background: #555;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            background: #ffffff;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+
+        th {
+            background: #f2f2f2;
+        }
+
+        .empty {
+            margin-top: 15px;
+            padding: 12px;
+            background: #eeeeee;
+        }
+
+        .success {
+            padding: 12px;
+            margin-bottom: 20px;
+            background: #dff0d8;
+            border: 1px solid #c8e6c9;
+        }
+
+        .error {
+            padding: 12px;
+            margin-bottom: 20px;
+            background: #f8d7da;
+            border: 1px solid #f1b0b7;
+        }
+
+        .back {
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <a
+        class="back"
+        href="campaigns.php"
+    >
+        ← Volver a campañas
+    </a>
+
+    <h1>
+        Agentes de la campaña
+    </h1>
+
+    <div class="campaign-info">
+
+        <strong>
+            Campaña:
+        </strong>
+
+        <?= htmlspecialchars($campaign['name']) ?>
+
+    </div>
+
+
+    <?php if ($mensaje !== null): ?>
+
+        <div class="<?= htmlspecialchars($tipoMensaje) ?>">
+
+            <?= htmlspecialchars($mensaje) ?>
+
+        </div>
+
+    <?php endif; ?>
+
+
+    <div class="panel">
+
+        <h2>
+            Asignar agente
+        </h2>
+
+        <?php if (empty($agentesDisponibles)): ?>
+
+            <div class="empty">
+
+                No hay agentes disponibles para asignar
+                a esta campaña.
+
+            </div>
+
+        <?php else: ?>
+
+            <form
+                method="POST"
+                action="campaign_agents.php?id=<?= (int) $campaignId ?>"
+            >
+
+                <div class="form-group">
+
+                    <label for="user_id">
+                        Seleccionar agente
+                    </label>
+
+                    <select
+                        name="user_id"
+                        id="user_id"
+                        required
+                    >
+
+                        <option value="">
+                            -- Seleccione un agente --
+                        </option>
+
+                        <?php foreach ($agentesDisponibles as $agente): ?>
+
+                            <option
+                                value="<?= (int) $agente['id'] ?>"
+                            >
+
+                                <?= htmlspecialchars($agente['name']) ?>
+                                -
+                                <?= htmlspecialchars($agente['email']) ?>
+
+                            </option>
+
+                        <?php endforeach; ?>
+
+                    </select>
+
+                </div>
+
+                <button type="submit">
+                    Asignar agente
+                </button>
+
+            </form>
+
+        <?php endif; ?>
+
+    </div>
+
+
+    <div class="panel">
+
+        <h2>
+            Agentes asignados
+        </h2>
+
+        <?php if (empty($agentesAsignados)): ?>
+
+            <div class="empty">
+
+                No hay agentes asignados a esta campaña.
+
+            </div>
+
+        <?php else: ?>
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>
+                            Nombre
+                        </th>
+
+                        <th>
+                            Correo
+                        </th>
+
+                        <th>
+                            Estado
+                        </th>
+
+                        <th>
+                            Fecha de asignación
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                <?php foreach ($agentesAsignados as $agente): ?>
+
+                    <tr>
+
+                        <td>
+                            <?= htmlspecialchars($agente['name']) ?>
+                        </td>
+
+                        <td>
+                            <?= htmlspecialchars($agente['email']) ?>
+                        </td>
+
+                        <td>
+                            <?= htmlspecialchars($agente['status']) ?>
+                        </td>
+
+                        <td>
+                            <?= htmlspecialchars($agente['assigned_at']) ?>
+                        </td>
+
+                    </tr>
+
+                <?php endforeach; ?>
+
+                </tbody>
+
+            </table>
+
+        <?php endif; ?>
+
+    </div>
+
+</div>
+
+</body>
+
+</html> 
+============================================================ 
+ARCHIVO: D:\Xampp\htdocs\callaudit\views\campaigns\create.php 
+============================================================ 
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>CallAudit - Nueva campaña</title>
+
+</head>
+
+<body>
+
+    <h1>Nueva campaña</h1>
+
+    <?php if (!empty($message)): ?>
+
+        <p>
+            <?= htmlspecialchars($message) ?>
+        </p>
+
+    <?php endif; ?>
+
+    <form method="POST">
+
+        <div>
+
+            <label for="name">
+                Nombre de la campaña
+            </label>
+
+            <br>
+
+            <input
+                type="text"
+                id="name"
+                name="name"
+                maxlength="150"
+                required
+            >
+
+        </div>
+
+        <br>
+
+        <div>
+
+            <label for="slug">
+                Slug
+            </label>
+
+            <br>
+
+            <input
+                type="text"
+                id="slug"
+                name="slug"
+                maxlength="150"
+                required
+            >
+
+        </div>
+
+        <br>
+
+        <div>
+
+            <label for="description">
+                Descripción
+            </label>
+
+            <br>
+
+            <textarea
+                id="description"
+                name="description"
+                rows="5"
+            ></textarea>
+
+        </div>
+
+        <br>
+
+        <div>
+
+            <label for="start_date">
+                Fecha de inicio
+            </label>
+
+            <br>
+
+            <input
+                type="date"
+                id="start_date"
+                name="start_date"
+            >
+
+        </div>
+
+        <br>
+
+        <div>
+
+            <label for="end_date">
+                Fecha de fin
+            </label>
+
+            <br>
+
+            <input
+                type="date"
+                id="end_date"
+                name="end_date"
+            >
+
+        </div>
+
+        <br>
+
+        <button type="submit">
+            Crear campaña
+        </button>
+
+    </form>
+
+    <br>
+
+    <a href="campaigns.php">
+        Volver a campañas
+    </a>
+
+</body>
+
+</html> 
+============================================================ 
+ARCHIVO: D:\Xampp\htdocs\callaudit\views\campaigns\edit.php 
+============================================================ 
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>CallAudit - Editar campaña</title>
+
+</head>
+
+<body>
+
+    <h1>Editar campaña</h1>
+
+    <?php if (!empty($message)): ?>
+
+        <p>
+            <?= htmlspecialchars($message) ?>
+        </p>
+
+    <?php endif; ?>
+
+    <form method="POST">
+
+        <div>
+
+            <label for="name">
+                Nombre de la campaña
+            </label>
+
+            <br>
+
+            <input
+                type="text"
+                id="name"
+                name="name"
+                maxlength="150"
+                value="<?= htmlspecialchars($campaign['name']) ?>"
+                required
+            >
+
+        </div>
+
+        <br>
+
+        <div>
+
+            <label for="slug">
+                Slug
+            </label>
+
+            <br>
+
+            <input
+                type="text"
+                id="slug"
+                name="slug"
+                maxlength="150"
+                value="<?= htmlspecialchars($campaign['slug']) ?>"
+                required
+            >
+
+        </div>
+
+        <br>
+
+        <div>
+
+            <label for="description">
+                Descripción
+            </label>
+
+            <br>
+
+            <textarea
+                id="description"
+                name="description"
+                rows="5"
+            ><?= htmlspecialchars($campaign['description'] ?? '') ?></textarea>
+
+        </div>
+
+        <br>
+
+        <div>
+
+            <label for="start_date">
+                Fecha de inicio
+            </label>
+
+            <br>
+
+            <input
+                type="date"
+                id="start_date"
+                name="start_date"
+                value="<?= htmlspecialchars($campaign['start_date'] ?? '') ?>"
+            >
+
+        </div>
+
+        <br>
+
+        <div>
+
+            <label for="end_date">
+                Fecha de fin
+            </label>
+
+            <br>
+
+            <input
+                type="date"
+                id="end_date"
+                name="end_date"
+                value="<?= htmlspecialchars($campaign['end_date'] ?? '') ?>"
+            >
+
+        </div>
+
+        <br>
+
+        <button type="submit">
+            Guardar cambios
+        </button>
+
+    </form>
+
+    <br>
+
+    <a href="campaigns.php">
+        Volver a campañas
+    </a>
+
+</body>
+
+</html> 
+============================================================ 
+ARCHIVO: D:\Xampp\htdocs\callaudit\views\campaigns\index.php 
+============================================================ 
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>CallAudit - Campañas</title>
+
+</head>
+
+<body>
+
+    <h1>Campañas</h1>
+
+    <p>
+        <a href="campaign_create.php">
+            Crear campaña
+        </a>
+    </p>
+
+    <?php if (empty($campaigns)): ?>
+
+        <p>
+            No existen campañas registradas.
+        </p>
+
+    <?php else: ?>
+
+        <table border="1" cellpadding="8" cellspacing="0">
+
+            <thead>
+
+                <tr>
+
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>Slug</th>
+                    <th>Descripción</th>
+                    <th>Estado</th>
+                    <th>Fecha inicio</th>
+                    <th>Fecha fin</th>
+                    <th>Creado</th>
+                    <th>Acciones</th>
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+                <?php foreach ($campaigns as $campaign): ?>
+
+                    <tr>
+
+                        <td>
+                            <?= htmlspecialchars($campaign['id']) ?>
+                        </td>
+
+                        <td>
+                            <?= htmlspecialchars($campaign['name']) ?>
+                        </td>
+
+                        <td>
+                            <?= htmlspecialchars($campaign['slug']) ?>
+                        </td>
+
+                        <td>
+                            <?= htmlspecialchars($campaign['description'] ?? '') ?>
+                        </td>
+
+                        <td>
+                            <?= htmlspecialchars($campaign['status']) ?>
+                        </td>
+
+                        <td>
+                            <?= htmlspecialchars($campaign['start_date'] ?? '') ?>
+                        </td>
+
+                        <td>
+                            <?= htmlspecialchars($campaign['end_date'] ?? '') ?>
+                        </td>
+
+                        <td>
+                            <?= htmlspecialchars($campaign['created_at']) ?>
+                        </td>
+                        <td>
+
+                            <a href="campaign_edit.php?id=<?= (int) $campaign['id'] ?>">
+                                Editar
+                            </a>
+
+                            |
+
+                            <?php if ($campaign['status'] === 'ACTIVE'): ?>
+
+                                <a
+                                    href="campaign_status.php?id=<?= (int) $campaign['id'] ?>&status=INACTIVE"
+                                    onclick="return confirm('¿Deseas desactivar esta campaña?');"
+                                >
+                                    Desactivar
+                                </a>
+
+                            <?php else: ?>
+
+                                <a
+                                    href="campaign_status.php?id=<?= (int) $campaign['id'] ?>&status=ACTIVE"
+                                    onclick="return confirm('¿Deseas activar esta campaña?');"
+                                >
+                                    Activar
+                                </a>
+
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+
+                <?php endforeach; ?>
+
+            </tbody>
+
+        </table>
+
+    <?php endif; ?>
+
+</body>
+
+</html> 
+============================================================ 
+ARCHIVO: D:\Xampp\htdocs\callaudit\views\tenants\create.php 
+============================================================ 
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>CallAudit - Nueva empresa</title>
+
+</head>
+
+<body>
+
+    <h1>Nueva empresa</h1>
+
+    <?php if (!empty($message)): ?>
+
+        <p>
+            <?= htmlspecialchars($message) ?>
+        </p>
+
+    <?php endif; ?>
+
+    <form method="POST">
+
+        <div>
+
+            <label for="name">
+                Nombre de la empresa
+            </label>
+
+            <br>
+
+            <input
+                type="text"
+                id="name"
+                name="name"
+                maxlength="150"
+                required
+            >
+
+        </div>
+
+        <br>
+
+        <div>
+
+            <label for="slug">
+                Slug
+            </label>
+
+            <br>
+
+            <input
+                type="text"
+                id="slug"
+                name="slug"
+                maxlength="150"
+                required
+            >
+
+        </div>
+
+        <br>
+
+        <button type="submit">
+            Crear empresa
+        </button>
+
+    </form>
+
+    <br>
+
+    <a href="tenants.php">
+        Volver a empresas
+    </a>
+
+</body>
+
+</html> 
+============================================================ 
+ARCHIVO: D:\Xampp\htdocs\callaudit\views\tenants\index.php 
+============================================================ 
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>CallAudit - Empresas</title>
+
+</head>
+
+<body>
+
+    <h1>Empresas</h1>
+
+    <table border="1" cellpadding="8" cellspacing="0">
+
+        <thead>
+
+            <tr>
+                <th>ID</th>
+                <th>Empresa</th>
+                <th>Slug</th>
+                <th>Estado</th>
+                <th>Creado</th>
+                <th>Actualizado</th>
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+            <?php foreach ($tenants as $tenant): ?>
+
+                <tr>
+
+                    <td>
+                        <?= htmlspecialchars($tenant['id']) ?>
+                    </td>
+
+                    <td>
+                        <?= htmlspecialchars($tenant['name']) ?>
+                    </td>
+
+                    <td>
+                        <?= htmlspecialchars($tenant['slug']) ?>
+                    </td>
+
+                    <td>
+                        <?= htmlspecialchars($tenant['status']) ?>
+                    </td>
+
+                    <td>
+                        <?= htmlspecialchars($tenant['created_at']) ?>
+                    </td>
+
+                    <td>
+                        <?= htmlspecialchars($tenant['updated_at']) ?>
+                    </td>
+
+                </tr>
+
+            <?php endforeach; ?>
+
+        </tbody>
+
+    </table>
+
+</body>
+
+</html> 
+============================================================ 
+ARCHIVO: D:\Xampp\htdocs\callaudit\views\users\create.php 
+============================================================ 
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Crear usuario - CallAudit</title>
+</head>
+<body>
+
+    <h1>Crear usuario</h1>
+
+    <?php if ($message !== ''): ?>
+
+        <p>
+            <?= htmlspecialchars($message) ?>
+        </p>
+
+    <?php endif; ?>
+
+    <form method="POST" action="">
+
+        <div>
+            <label for="tenant_id">Empresa:</label>
+
+            <select name="tenant_id" id="tenant_id" required>
+
+                <option value="">Seleccione una empresa</option>
+
+                <?php foreach ($tenants as $tenant): ?>
+
+                    <option
+                        value="<?= htmlspecialchars($tenant['id']) ?>"
+                        <?= (
+                            isset($_POST['tenant_id'])
+                            && $_POST['tenant_id'] == $tenant['id']
+                        ) ? 'selected' : ''
+                        ?>
+                    >
+                        <?= htmlspecialchars($tenant['name']) ?>
+                    </option>
+
+                <?php endforeach; ?>
+
+            </select>
+        </div>
+
+        <br>
+
+        <div>
+            <label for="name">Nombre:</label>
+
+            <input
+                type="text"
+                name="name"
+                id="name"
+                maxlength="150"
+                value="<?= htmlspecialchars($_POST['name'] ?? '') ?>"
+                required
+            >
+        </div>
+
+        <br>
+
+        <div>
+            <label for="email">Correo electrónico:</label>
+
+            <input
+                type="email"
+                name="email"
+                id="email"
+                maxlength="150"
+                value="<?= htmlspecialchars($_POST['email'] ?? '') ?>"
+                required
+            >
+        </div>
+
+        <br>
+
+        <div>
+            <label for="password">Contraseña:</label>
+
+            <input
+                type="password"
+                name="password"
+                id="password"
+                minlength="8"
+                required
+            >
+        </div>
+
+        <br>
+
+        <button type="submit">
+            Crear usuario
+        </button>
+
+        <a href="users.php">
+            Cancelar
+        </a>
+
+    </form>
+
+</body>
+</html> 
+============================================================ 
+ARCHIVO: D:\Xampp\htdocs\callaudit\views\users\index.php 
+============================================================ 
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Usuarios - CallAudit</title>
+</head>
+<body>
+
+    <h1>Usuarios</h1>
+
+    <p>
+        <a href="user_create.php">Crear usuario</a>
+    </p>
+
+    <?php if (empty($users)): ?>
+
+        <p>No existen usuarios registrados.</p>
+
+    <?php else: ?>
+
+        <table border="1" cellpadding="8" cellspacing="0">
+
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Empresa</th>
+                    <th>Nombre</th>
+                    <th>Email</th>
+                    <th>Estado</th>
+                    <th>Fecha creación</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+                <?php foreach ($users as $user): ?>
+
+                    <tr>
+                        <td>
+                            <?= htmlspecialchars($user['id']) ?>
+                        </td>
+
+                        <td>
+                            <?= htmlspecialchars($user['tenant_name']) ?>
+                        </td>
+
+                        <td>
+                            <?= htmlspecialchars($user['name']) ?>
+                        </td>
+
+                        <td>
+                            <?= htmlspecialchars($user['email']) ?>
+                        </td>
+
+                        <td>
+                            <?= htmlspecialchars($user['status']) ?>
+                        </td>
+
+                        <td>
+                            <?= htmlspecialchars($user['created_at']) ?>
+                        </td>
+                    </tr>
+
+                <?php endforeach; ?>
+
+            </tbody>
+
+        </table>
+
+    <?php endif; ?>
+
+</body>
+</html>

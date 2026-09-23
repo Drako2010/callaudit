@@ -1,0 +1,362 @@
+ 
+============================================================ 
+ARCHIVO: services\AuthMiddleware.php 
+============================================================ 
+<?php
+
+require_once __DIR__ . '/SessionService.php';
+require_once __DIR__ . '/Authorization.php';
+
+class AuthMiddleware
+{
+    private SessionService $session;
+    private Authorization $authorization;
+
+    public function __construct()
+    {
+        $this->session = new SessionService();
+        $this->authorization = new Authorization();
+    }
+
+    public function proteger(): void
+    {
+        if (!$this->session->estaAutenticado()) {
+
+            header('Location: login.php');
+            exit;
+        }
+    }
+
+    public function requierePermiso(string $permissionSlug): void
+    {
+        $this->proteger();
+
+        $usuario = $this->session->obtenerUsuario();
+
+        if ($usuario === null) {
+
+            header('Location: login.php');
+            exit;
+        }
+
+        $tienePermiso = $this->authorization->tienePermiso(
+            (int) $usuario['id'],
+            $permissionSlug
+        );
+
+        if (!$tienePermiso) {
+
+            http_response_code(403);
+
+            echo 'ACCESO DENEGADO';
+            exit;
+        }
+    }
+
+    public function usuario(): ?array
+    {
+        if (!$this->session->estaAutenticado()) {
+            return null;
+        }
+
+        return $this->session->obtenerUsuario();
+    }
+} 
+============================================================ 
+ARCHIVO: services\Authorization.php 
+============================================================ 
+<?php
+
+require_once __DIR__ . '/../config/database.php';
+
+class Authorization
+{
+    private ?PDO $db;
+
+    public function __construct()
+    {
+        $database = new Database();
+
+        $this->db = $database->connect();
+    }
+
+    public function tienePermiso(
+        int $userId,
+        string $permissionSlug
+    ): bool {
+
+        if ($this->db === null) {
+            return false;
+        }
+
+        /*
+         * 1. Verificar que el usuario exista y esté activo.
+         */
+
+        $sqlUser = "SELECT
+                        id,
+                        tenant_id,
+                        status
+                    FROM users
+                    WHERE id = :user_id
+                    LIMIT 1";
+
+        $stmtUser = $this->db->prepare($sqlUser);
+
+        $stmtUser->execute([
+            ':user_id' => $userId
+        ]);
+
+        $user = $stmtUser->fetch();
+
+        if ($user === false) {
+            return false;
+        }
+
+        if ($user['status'] !== 'ACTIVE') {
+            return false;
+        }
+
+        /*
+         * 2. Verificar DENY individual.
+         */
+
+        $sqlDeny = "SELECT
+                        up.user_id
+                    FROM user_permissions up
+                    INNER JOIN permissions p
+                        ON p.id = up.permission_id
+                    WHERE up.user_id = :user_id
+                    AND p.slug = :permission_slug
+                    AND p.status = 'ACTIVE'
+                    AND up.effect = 'DENY'
+                    LIMIT 1";
+
+        $stmtDeny = $this->db->prepare($sqlDeny);
+
+        $stmtDeny->execute([
+            ':user_id' => $userId,
+            ':permission_slug' => $permissionSlug
+        ]);
+
+        if ($stmtDeny->fetch() !== false) {
+            return false;
+        }
+
+        /*
+         * 3. Verificar GRANT individual.
+         */
+
+        $sqlGrant = "SELECT
+                        up.user_id
+                    FROM user_permissions up
+                    INNER JOIN permissions p
+                        ON p.id = up.permission_id
+                    WHERE up.user_id = :user_id
+                    AND p.slug = :permission_slug
+                    AND p.status = 'ACTIVE'
+                    AND up.effect = 'GRANT'
+                    LIMIT 1";
+
+        $stmtGrant = $this->db->prepare($sqlGrant);
+
+        $stmtGrant->execute([
+            ':user_id' => $userId,
+            ':permission_slug' => $permissionSlug
+        ]);
+
+        if ($stmtGrant->fetch() !== false) {
+            return true;
+        }
+
+        /*
+         * 4. Verificar permisos provenientes de roles.
+         */
+
+        $sqlRole = "SELECT
+                        rp.role_id
+                    FROM user_roles ur
+                    INNER JOIN roles r
+                        ON r.id = ur.role_id
+                    INNER JOIN role_permissions rp
+                        ON rp.role_id = r.id
+                    INNER JOIN permissions p
+                        ON p.id = rp.permission_id
+                    WHERE ur.user_id = :user_id
+                    AND r.status = 'ACTIVE'
+                    AND p.status = 'ACTIVE'
+                    AND p.slug = :permission_slug
+                    AND (
+                        r.tenant_id IS NULL
+                        OR r.tenant_id = :tenant_id
+                    )
+                    LIMIT 1";
+
+        $stmtRole = $this->db->prepare($sqlRole);
+
+        $stmtRole->execute([
+            ':user_id' => $userId,
+            ':permission_slug' => $permissionSlug,
+            ':tenant_id' => $user['tenant_id']
+        ]);
+
+        if ($stmtRole->fetch() !== false) {
+            return true;
+        }
+
+        /*
+         * 5. Si no existe ninguna autorización,
+         *    se deniega el acceso.
+         */
+
+        return false;
+    }
+} 
+============================================================ 
+ARCHIVO: services\AuthService.php 
+============================================================ 
+<?php
+
+require_once __DIR__ . '/../config/database.php';
+
+class AuthService
+{
+    private ?PDO $db;
+
+    public function __construct()
+    {
+        $database = new Database();
+
+        $this->db = $database->connect();
+    }
+
+    public function autenticar(
+        string $email,
+        string $password
+    ): ?array {
+
+        if ($this->db === null) {
+            return null;
+        }
+
+        $sql = "SELECT
+                    id,
+                    tenant_id,
+                    name,
+                    email,
+                    password,
+                    status
+                FROM users
+                WHERE email = :email
+                LIMIT 1";
+
+        $stmt = $this->db->prepare($sql);
+
+        $stmt->execute([
+            ':email' => $email
+        ]);
+
+        $user = $stmt->fetch();
+
+        if ($user === false) {
+            return null;
+        }
+
+        if ($user['status'] !== 'ACTIVE') {
+            return null;
+        }
+
+        if (!password_verify($password, $user['password'])) {
+            return null;
+        }
+
+        unset($user['password']);
+
+        return $user;
+    }
+} 
+============================================================ 
+ARCHIVO: services\SessionService.php 
+============================================================ 
+<?php
+
+class SessionService
+{
+    public function iniciar(): void
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+
+            session_set_cookie_params([
+                'httponly' => true,
+                'secure' => false,
+                'samesite' => 'Lax'
+            ]);
+
+            session_start();
+        }
+    }
+
+    public function iniciarSesion(array $user): void
+    {
+        $this->iniciar();
+
+        session_regenerate_id(true);
+
+        $_SESSION['user_id'] = (int) $user['id'];
+        $_SESSION['tenant_id'] = $user['tenant_id'] !== null
+            ? (int) $user['tenant_id']
+            : null;
+        $_SESSION['name'] = $user['name'];
+        $_SESSION['email'] = $user['email'];
+        $_SESSION['status'] = $user['status'];
+        $_SESSION['authenticated'] = true;
+    }
+
+    public function estaAutenticado(): bool
+    {
+        $this->iniciar();
+
+        return isset($_SESSION['authenticated'])
+            && $_SESSION['authenticated'] === true
+            && isset($_SESSION['user_id']);
+    }
+
+    public function obtenerUsuario(): ?array
+    {
+        if (!$this->estaAutenticado()) {
+            return null;
+        }
+
+        return [
+            'id' => $_SESSION['user_id'],
+            'tenant_id' => $_SESSION['tenant_id'] ?? null,
+            'name' => $_SESSION['name'] ?? '',
+            'email' => $_SESSION['email'] ?? '',
+            'status' => $_SESSION['status'] ?? ''
+        ];
+    }
+
+    public function cerrarSesion(): void
+    {
+        $this->iniciar();
+
+        $_SESSION = [];
+
+        if (ini_get('session.use_cookies')) {
+
+            $params = session_get_cookie_params();
+
+            setcookie(
+                session_name(),
+                '',
+                time() - 42000,
+                $params['path'],
+                $params['domain'],
+                $params['secure'],
+                $params['httponly']
+            );
+        }
+
+        session_destroy();
+    }
+}

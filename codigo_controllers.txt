@@ -1,0 +1,678 @@
+ 
+============================================================ 
+ARCHIVO: controllers\CampaignController.php 
+============================================================ 
+<?php
+
+// Carga el modelo Campaign
+require_once __DIR__ . '/../models/Campaign.php';
+
+class CampaignController
+{
+    private Campaign $campaign;
+
+    public function __construct()
+    {
+        $this->campaign = new Campaign();
+    }
+
+    /*
+    El Controller dice:
+
+    Necesito la lista de campañas de una empresa.
+
+    Y delega el trabajo al modelo:
+    $this->campaign->listar($tenantId);
+    */
+    public function index(int $tenantId): array
+    {
+        return $this->campaign->listar($tenantId);
+    }
+
+    // Esta es la parte encargada de crear campañas.
+    public function store(
+        int $tenantId,
+        string $name,
+        string $slug,
+        ?string $description,
+        ?string $startDate,
+        ?string $endDate,
+        ?int $createdBy
+    ): array {
+
+        // Elimina espacios innecesarios.
+        $name = trim($name);
+        $slug = trim($slug);
+
+        if ($name === '') {
+            return [
+                'success' => false,
+                'message' => 'El nombre de la campaña es obligatorio.'
+            ];
+        }
+
+        if ($slug === '') {
+            return [
+                'success' => false,
+                'message' => 'El slug de la campaña es obligatorio.'
+            ];
+        }
+
+        if ($this->campaign->existeSlug($tenantId, $slug)) {
+            return [
+                'success' => false,
+                'message' => 'El slug ya está registrado en esta empresa.'
+            ];
+        }
+
+        // Validar fecha de inicio y fecha de fin.
+        if ($startDate !== null && $startDate !== '') {
+            $startDate = trim($startDate);
+        } else {
+            $startDate = null;
+        }
+
+        if ($endDate !== null && $endDate !== '') {
+            $endDate = trim($endDate);
+        } else {
+            $endDate = null;
+        }
+
+        // Si ambas fechas existen, comprobar que sean coherentes.
+        if ($startDate !== null && $endDate !== null) {
+
+            if ($endDate < $startDate) {
+                return [
+                    'success' => false,
+                    'message' => 'La fecha de fin no puede ser anterior a la fecha de inicio.'
+                ];
+            }
+        }
+
+        // Si está vacío, convertir descripción a NULL.
+        if ($description !== null) {
+            $description = trim($description);
+
+            if ($description === '') {
+                $description = null;
+            }
+        }
+
+        // Si todo está correcto: el modelo realiza el INSERT.
+        $creado = $this->campaign->crear(
+            $tenantId,
+            $name,
+            $slug,
+            $description,
+            $startDate,
+            $endDate,
+            $createdBy
+        );
+
+        // Si hubo errores.
+        if (!$creado) {
+            return [
+                'success' => false,
+                'message' => 'No se pudo crear la campaña.'
+            ];
+        }
+
+        // Después del INSERT.
+        return [
+            'success' => true,
+            'message' => 'Campaña creada correctamente.'
+        ];
+    }
+
+    // Esta es la parte encargada de actualizar una campaña.
+    public function update(
+        int $tenantId,
+        int $id,
+        string $name,
+        string $slug,
+        ?string $description,
+        ?string $startDate,
+        ?string $endDate
+    ): array {
+
+        // Elimina espacios innecesarios.
+        $name = trim($name);
+        $slug = trim($slug);
+
+        if ($name === '') {
+            return [
+                'success' => false,
+                'message' => 'El nombre de la campaña es obligatorio.'
+            ];
+        }
+
+        if ($slug === '') {
+            return [
+                'success' => false,
+                'message' => 'El slug de la campaña es obligatorio.'
+            ];
+        }
+
+        // Comprobar que la campaña exista dentro de la empresa.
+        $campaign = $this->campaign->obtenerPorId(
+            $tenantId,
+            $id
+        );
+
+        if ($campaign === null) {
+            return [
+                'success' => false,
+                'message' => 'La campaña no existe.'
+            ];
+        }
+
+        // Comprobar que el slug no pertenezca a otra campaña.
+        if (
+            $this->campaign->existeSlugExceptoId(
+                $tenantId,
+                $slug,
+                $id
+            )
+        ) {
+            return [
+                'success' => false,
+                'message' => 'El slug ya está registrado en esta empresa.'
+            ];
+        }
+
+        // Validar fecha de inicio.
+        if ($startDate !== null && $startDate !== '') {
+            $startDate = trim($startDate);
+        } else {
+            $startDate = null;
+        }
+
+        // Validar fecha de fin.
+        if ($endDate !== null && $endDate !== '') {
+            $endDate = trim($endDate);
+        } else {
+            $endDate = null;
+        }
+
+        // Comprobar coherencia de fechas.
+        if ($startDate !== null && $endDate !== null) {
+
+            if ($endDate < $startDate) {
+                return [
+                    'success' => false,
+                    'message' => 'La fecha de fin no puede ser anterior a la fecha de inicio.'
+                ];
+            }
+        }
+
+        // Si la descripción está vacía, guardar NULL.
+        if ($description !== null) {
+
+            $description = trim($description);
+
+            if ($description === '') {
+                $description = null;
+            }
+        }
+
+        $actualizado = $this->campaign->actualizar(
+            $tenantId,
+            $id,
+            $name,
+            $slug,
+            $description,
+            $startDate,
+            $endDate
+        );
+
+        if (!$actualizado) {
+            return [
+                'success' => false,
+                'message' => 'No se pudo actualizar la campaña.'
+            ];
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Campaña actualizada correctamente.'
+        ];
+    }
+
+    // Cambia el estado de una campaña.    
+    public function cambiarEstado(
+            int $tenantId,
+            int $id,
+            string $status
+        ): array {
+
+            // Solo permitimos estos dos estados.
+            if (!in_array($status, ['ACTIVE', 'INACTIVE'], true)) {
+
+                return [
+                    'success' => false,
+                    'message' => 'Estado de campaña no válido.'
+                ];
+            }
+
+            // Comprobar que la campaña pertenece al tenant.
+            $campaign = $this->campaign->obtenerPorId(
+                $tenantId,
+                $id
+            );
+
+            if ($campaign === null) {
+
+                return [
+                    'success' => false,
+                    'message' => 'La campaña no existe.'
+                ];
+            }
+
+            // Evitar realizar nuevamente el mismo cambio.
+            if ($campaign['status'] === $status) {
+
+                return [
+                    'success' => false,
+                    'message' => 'La campaña ya tiene ese estado.'
+                ];
+            }
+
+            $actualizado = $this->campaign->cambiarEstado(
+                $tenantId,
+                $id,
+                $status
+            );
+
+            if (!$actualizado) {
+
+                return [
+                    'success' => false,
+                    'message' => 'No se pudo cambiar el estado de la campaña.'
+                ];
+            }
+
+            if ($status === 'ACTIVE') {
+
+                $mensaje = 'Campaña activada correctamente.';
+
+            } else {
+
+                $mensaje = 'Campaña desactivada correctamente.';
+            }
+
+            return [
+                'success' => true,
+                'message' => $mensaje
+            ];
+    }    
+
+    // Este método permite obtener una campaña específica.
+    public function show(int $tenantId, int $id): ?array
+    {
+        return $this->campaign->obtenerPorId($tenantId, $id);
+    }
+} 
+============================================================ 
+ARCHIVO: controllers\CampaignUserController.php 
+============================================================ 
+<?php
+
+require_once __DIR__ . '/../models/CampaignUser.php';
+require_once __DIR__ . '/../models/Campaign.php';
+
+class CampaignUserController
+{
+    private CampaignUser $campaignUser;
+
+    public function __construct()
+    {
+        $this->campaignUser = new CampaignUser();
+    }
+
+    /**
+     * Listar agentes asignados a una campaña.
+     */
+    public function index(
+        int $tenantId,
+        int $campaignId
+    ): array {
+        return $this->campaignUser->listarPorCampania(
+            $tenantId,
+            $campaignId
+        );
+    }
+
+    /**
+     * Listar agentes disponibles para asignar.
+     */
+    public function agentesDisponibles(
+        int $tenantId,
+        int $campaignId
+    ): array {
+        return $this->campaignUser->listarAgentesDisponibles(
+            $tenantId,
+            $campaignId
+        );
+    }
+
+    /**
+     * Asignar un agente a una campaña.
+     */
+    public function store(
+        int $tenantId,
+        int $campaignId,
+        int $userId
+    ): array {
+
+        /*
+         * Verificar que la campaña pertenezca
+         * al tenant autenticado.
+         */
+        $campaign = new Campaign();
+
+        $datosCampania = $campaign->obtenerPorId(
+            $tenantId,
+            $campaignId
+        );
+
+        if ($datosCampania === null) {
+            return [
+                'success' => false,
+                'message' => 'La campaña no pertenece a esta empresa.'
+            ];
+        }
+
+        /*
+         * Verificar que el usuario sea:
+         * - del mismo tenant
+         * - activo
+         * - AGENTE
+         * - no asignado previamente
+         */
+        if (
+            !$this->campaignUser->esAgenteDisponible(
+                $tenantId,
+                $campaignId,
+                $userId
+            )
+        ) {
+            return [
+                'success' => false,
+                'message' => 'El usuario no es un agente disponible para esta campaña.'
+            ];
+        }
+
+        /*
+         * Verificar nuevamente que no exista
+         * una asignación duplicada.
+         */
+        if (
+            $this->campaignUser->existeAsignacion(
+                $tenantId,
+                $campaignId,
+                $userId
+            )
+        ) {
+            return [
+                'success' => false,
+                'message' => 'El usuario ya está asignado a esta campaña.'
+            ];
+        }
+
+        /*
+         * Crear asignación.
+         */
+        $resultado = $this->campaignUser->asignar(
+            $tenantId,
+            $campaignId,
+            $userId
+        );
+
+        if (!$resultado) {
+            return [
+                'success' => false,
+                'message' => 'No se pudo asignar el usuario a la campaña.'
+            ];
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Usuario asignado correctamente.'
+        ];
+    }
+
+    /**
+     * Cambiar estado de una asignación.
+     */
+    public function cambiarEstado(
+        int $tenantId,
+        int $campaignUserId,
+        string $status
+    ): array {
+
+        if (!in_array(
+            $status,
+            ['ACTIVE', 'INACTIVE'],
+            true
+        )) {
+            return [
+                'success' => false,
+                'message' => 'Estado no válido.'
+            ];
+        }
+
+        $resultado = $this->campaignUser->cambiarEstado(
+            $tenantId,
+            $campaignUserId,
+            $status
+        );
+
+        if (!$resultado) {
+            return [
+                'success' => false,
+                'message' => 'No se encontró la asignación.'
+            ];
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Estado actualizado correctamente.'
+        ];
+    }
+} 
+============================================================ 
+ARCHIVO: controllers\TenantController.php 
+============================================================ 
+<?php
+
+// Carga el modelo Tenant
+require_once __DIR__ . '/../models/Tenant.php';
+
+class TenantController
+{
+    private Tenant $tenant;
+
+    public function __construct()
+    {
+        $this->tenant = new Tenant();
+    }
+
+/*
+El Controller dice:
+
+Necesito la lista de empresas.
+
+Y delega el trabajo al modelo:   $this->tenant->listar();
+*/
+    public function index(): array
+    {
+        return $this->tenant->listar();
+    }
+
+// Esta es la parte encargada de crear empresas.
+    public function store(string $name, string $slug): array
+    {
+        // elimina espacios innecesarios.
+        $name = trim($name);
+        $slug = trim($slug);
+
+        if ($name === '') { // comprueba que haya nombre.
+            return [
+                'success' => false,
+                'message' => 'El nombre de la empresa es obligatorio.'
+            ];
+        }
+
+        if ($slug === '') { // comprueba que haya slug.
+            return [
+                'success' => false,
+                'message' => 'El slug de la empresa es obligatorio.'
+            ];
+        }
+
+        if ($this->tenant->existeSlug($slug)) { // Aquí pregunta al modelo: ¿Ya existe este slug? 
+            // si ya existe retorna
+            return [
+                'success' => false,
+                'message' => 'El slug ya está registrado.'
+            ];
+        }
+
+// Si todo está correcto: el modelo realiza el INSERT.
+        $creado = $this->tenant->crear($name, $slug);
+
+// Si esta vacio: con errores
+        if (!$creado) {
+            return [
+                'success' => false,
+                'message' => 'No se pudo crear la empresa.'
+            ];
+        }
+
+// despues del insert
+        return [
+            'success' => true,
+            'message' => 'Empresa creada correctamente.'
+        ];
+    }
+} 
+============================================================ 
+ARCHIVO: controllers\UserController.php 
+============================================================ 
+<?php
+// Modelos
+require_once __DIR__ . '/../models/User.php';
+require_once __DIR__ . '/../models/Tenant.php';
+
+class UserController
+{
+    // Propiedades de los modelos
+    private User $user;
+    private Tenant $tenant;
+
+    public function __construct()
+    {
+        $this->user = new User();
+        $this->tenant = new Tenant();
+    }
+
+    public function index(): array
+    {
+        return $this->user->listar();
+    }
+
+    public function store(
+        int $tenantId,
+        string $name,
+        string $email,
+        string $password
+    ): array {
+        $name = trim($name);
+        $email = trim($email);
+        $password = trim($password);
+
+        if ($tenantId <= 0) {
+            return [
+                'success' => false,
+                'message' => 'La empresa es obligatoria.'
+            ];
+        }
+
+        $tenant = $this->tenant->obtenerPorId($tenantId);
+
+        if ($tenant === null) {
+            return [
+                'success' => false,
+                'message' => 'La empresa seleccionada no existe.'
+            ];
+        }
+
+        if ($tenant['status'] !== 'ACTIVE') {
+            return [
+                'success' => false,
+                'message' => 'La empresa seleccionada está inactiva.'
+            ];
+        }
+
+        if ($name === '') {
+            return [
+                'success' => false,
+                'message' => 'El nombre del usuario es obligatorio.'
+            ];
+        }
+
+        if ($email === '') { // comprueba que se haya enviado un correo.
+            return [
+                'success' => false,
+                'message' => 'El correo electrónico es obligatorio.'
+            ];
+        }
+
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) { // comprueba que tenga formato de correo válido.
+            return [
+                'success' => false,
+                'message' => 'El correo electrónico no es válido.'
+            ];
+        }
+
+        if ($password === '') {
+            return [
+                'success' => false,
+                'message' => 'La contraseña es obligatoria.'
+            ];
+        }
+
+        if (strlen($password) < 8) { // establece nuestra primera regla de seguridad para contraseñas.
+            return [
+                'success' => false,
+                'message' => 'La contraseña debe tener al menos 8 caracteres.'
+            ];
+        }
+
+        if ($this->user->existeEmail($tenantId, $email)) { // comprueba que no exista otro usuario con el mismo correo dentro de esa empresa.
+            return [
+                'success' => false,
+                'message' => 'El correo ya está registrado en esta empresa.'
+            ];
+        }
+
+        $creado = $this->user->crear(
+            $tenantId,
+            $name,
+            $email,
+            $password
+        );
+
+        if (!$creado) {
+            return [
+                'success' => false,
+                'message' => 'No se pudo crear el usuario.'
+            ];
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Usuario creado correctamente.'
+        ];
+    }
+}
