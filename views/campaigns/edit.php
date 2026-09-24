@@ -26,6 +26,17 @@
 
     <?php endif; ?>
 
+
+    <!--
+        Formulario de actualización de la campaña.
+
+        El método POST se utiliza porque esta operación modifica
+        información almacenada en la base de datos.
+
+        La autorización real NO depende de este formulario.
+        campaign_edit.php y CampaignController vuelven a validar
+        el permiso campaigns.edit antes de actualizar.
+    -->
     <form method="POST">
 
         <div>
@@ -41,7 +52,7 @@
                 id="name"
                 name="name"
                 maxlength="150"
-                value="<?= htmlspecialchars($campaign['name']) ?>"
+                value="<?= htmlspecialchars($name) ?>"
                 required
             >
 
@@ -62,7 +73,7 @@
                 id="slug"
                 name="slug"
                 maxlength="150"
-                value="<?= htmlspecialchars($campaign['slug']) ?>"
+                value="<?= htmlspecialchars($slug) ?>"
                 required
             >
 
@@ -82,7 +93,7 @@
                 id="description"
                 name="description"
                 rows="5"
-            ><?= htmlspecialchars($campaign['description'] ?? '') ?></textarea>
+            ><?= htmlspecialchars($description ?? '') ?></textarea>
 
         </div>
 
@@ -100,7 +111,7 @@
                 type="date"
                 id="start_date"
                 name="start_date"
-                value="<?= htmlspecialchars($campaign['start_date'] ?? '') ?>"
+                value="<?= htmlspecialchars($startDate ?? '') ?>"
             >
 
         </div>
@@ -119,7 +130,7 @@
                 type="date"
                 id="end_date"
                 name="end_date"
-                value="<?= htmlspecialchars($campaign['end_date'] ?? '') ?>"
+                value="<?= htmlspecialchars($endDate ?? '') ?>"
             >
 
         </div>

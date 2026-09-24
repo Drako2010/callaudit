@@ -5,9 +5,12 @@
 
     <meta charset="UTF-8">
 
-    <title>
-        Agentes de campaña
-    </title>
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>CallAudit - Agentes de campaña</title>
 
     <style>
 
@@ -131,10 +134,19 @@
         ← Volver a campañas
     </a>
 
+
     <h1>
         Agentes de la campaña
     </h1>
 
+
+    <!--
+        Información de la campaña que estamos administrando.
+
+        El objeto $campaign es obtenido por campaign_agents.php
+        después de verificar que la campaña pertenece al tenant
+        del usuario autenticado.
+    -->
     <div class="campaign-info">
 
         <strong>
@@ -146,24 +158,42 @@
     </div>
 
 
-    <?php if ($mensaje !== null): ?>
+    <!--
+        Mensaje generado por el procesamiento de la operación.
 
-        <div class="<?= htmlspecialchars($tipoMensaje) ?>">
+        campaign_agents.php utiliza la variable $message.
+    -->
+    <?php if (!empty($message)): ?>
 
-            <?= htmlspecialchars($mensaje) ?>
+        <div class="error">
+
+            <?= htmlspecialchars($message) ?>
 
         </div>
 
     <?php endif; ?>
 
 
+    <!--
+        Panel para asignar agentes.
+
+        La seguridad real de esta operación se encuentra en:
+        campaign_agents.php
+        CampaignUserController
+        CampaignUser
+
+        El formulario solamente envía el user_id.
+        No enviamos tenant_id porque el tenant se obtiene
+        de la sesión autenticada.
+    -->
     <div class="panel">
 
         <h2>
             Asignar agente
         </h2>
 
-        <?php if (empty($agentesDisponibles)): ?>
+
+        <?php if (empty($availableAgents)): ?>
 
             <div class="empty">
 
@@ -176,7 +206,7 @@
 
             <form
                 method="POST"
-                action="campaign_agents.php?id=<?= (int) $campaignId ?>"
+                action="campaign_agents.php?id=<?= (int) $id ?>"
             >
 
                 <div class="form-group">
@@ -195,23 +225,26 @@
                             -- Seleccione un agente --
                         </option>
 
-                        <?php foreach ($agentesDisponibles as $agente): ?>
+
+                        <?php foreach ($availableAgents as $agent): ?>
 
                             <option
-                                value="<?= (int) $agente['id'] ?>"
+                                value="<?= (int) $agent['id'] ?>"
                             >
 
-                                <?= htmlspecialchars($agente['name']) ?>
+                                <?= htmlspecialchars($agent['name']) ?>
                                 -
-                                <?= htmlspecialchars($agente['email']) ?>
+                                <?= htmlspecialchars($agent['email']) ?>
 
                             </option>
 
                         <?php endforeach; ?>
 
+
                     </select>
 
                 </div>
+
 
                 <button type="submit">
                     Asignar agente
@@ -224,13 +257,20 @@
     </div>
 
 
+    <!--
+        Lista de agentes actualmente asignados a la campaña.
+
+        campaign_agents.php obtiene esta información mediante
+        CampaignUserController::index().
+    -->
     <div class="panel">
 
         <h2>
             Agentes asignados
         </h2>
 
-        <?php if (empty($agentesAsignados)): ?>
+
+        <?php if (empty($assignedAgents)): ?>
 
             <div class="empty">
 
@@ -266,26 +306,27 @@
 
                 </thead>
 
+
                 <tbody>
 
-                <?php foreach ($agentesAsignados as $agente): ?>
+                <?php foreach ($assignedAgents as $agent): ?>
 
                     <tr>
 
                         <td>
-                            <?= htmlspecialchars($agente['name']) ?>
+                            <?= htmlspecialchars($agent['name']) ?>
                         </td>
 
                         <td>
-                            <?= htmlspecialchars($agente['email']) ?>
+                            <?= htmlspecialchars($agent['email']) ?>
                         </td>
 
                         <td>
-                            <?= htmlspecialchars($agente['status']) ?>
+                            <?= htmlspecialchars($agent['status']) ?>
                         </td>
 
                         <td>
-                            <?= htmlspecialchars($agente['assigned_at']) ?>
+                            <?= htmlspecialchars($agent['assigned_at']) ?>
                         </td>
 
                     </tr>
