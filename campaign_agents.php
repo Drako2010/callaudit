@@ -28,11 +28,10 @@ $usuario = $auth->usuario();
 |--------------------------------------------------------------------------
 | Verificar autenticación
 |--------------------------------------------------------------------------
-| Aunque posteriormente utilizaremos requierePermiso(), mantenemos esta
-| comprobación explícita para garantizar que tenemos un usuario válido.
 */
 
 if ($usuario === null) {
+
     header('Location: login.php');
     exit;
 }
@@ -52,8 +51,8 @@ if ($usuario['tenant_id'] === null) {
     /*
      * Los usuarios globales/SUPERADMIN no tienen tenant propio.
      *
-     * Por ahora esta pantalla requiere que exista un ámbito de empresa
-     * explícito.
+     * Por ahora esta pantalla requiere que exista un ámbito
+     * de empresa explícito.
      */
     http_response_code(403);
 
@@ -76,7 +75,7 @@ $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 
 /*
 |--------------------------------------------------------------------------
-| Validar ID
+| Validar ID de campaña
 |--------------------------------------------------------------------------
 */
 
@@ -122,25 +121,25 @@ if ($campaign === null) {
 
 /*
 |--------------------------------------------------------------------------
-| Determinar si se está modificando la campaña
+| Determinar permiso según la operación
 |--------------------------------------------------------------------------
-| La asignación de agentes modifica datos, por lo que requiere
-| campaigns.edit.
+| Las consultas requieren campaigns.view.
 |
-| Las consultas de agentes requieren campaigns.view.
+| Las operaciones que modifican asignaciones requieren campaigns.edit.
 */
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     /*
-     * Para asignar agentes necesitamos permiso de edición.
+     * Asignar, activar o desactivar un agente son operaciones
+     * que modifican información.
      */
     $auth->requierePermiso('campaigns.edit');
 
 } else {
 
     /*
-     * Para visualizar agentes necesitamos permiso de consulta.
+     * Para visualizar agentes solamente necesitamos consulta.
      */
     $auth->requierePermiso('campaigns.view');
 }
@@ -148,7 +147,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 /*
 |--------------------------------------------------------------------------
-| Procesar asignación de agente
+| Procesar operaciones POST
 |--------------------------------------------------------------------------
 */
 
@@ -157,60 +156,182 @@ $message = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     /*
-     * Obtener el usuario/agente enviado por el formulario.
-     *
-     * No recibimos tenant_id desde el formulario.
-     */
-    $userId = isset($_POST['user_id']) ? (int) $_POST['user_id'] : 0;
+    |--------------------------------------------------------------------------
+    | Determinar operación
+    |--------------------------------------------------------------------------
+    | Utilizamos el campo operation para distinguir:
+    |
+    | - assign → asignar un nuevo agente
+    | - status → activar/desactivar una asignación existente
+    |
+    | No confiamos en los datos del formulario para determinar el tenant.
+    | El tenant continúa siendo obtenido exclusivamente de la sesión.
+    */
+
+    $operation = isset($_POST['operation'])
+        ? trim($_POST['operation'])
+        : '';
 
 
     /*
-     * Validar ID del usuario.
-     */
+    |--------------------------------------------------------------------------
+    | Asignar agente
+    |--------------------------------------------------------------------------
+    */
 
-    if ($userId <= 0) {
+    if ($operation === 'assign') {
 
-        $message = 'Usuario inválido.';
+        /*
+         * Obtener el ID del usuario/agente enviado por el formulario.
+         */
+        $userId = isset($_POST['user_id'])
+            ? (int) $_POST['user_id']
+            : 0;
+
+
+        /*
+         * Validar ID del usuario.
+         */
+        if ($userId <= 0) {
+
+            $message = 'Usuario inválido.';
+
+        } else {
+
+            /*
+             * Delegar la asignación al controlador.
+             *
+             * El CampaignUserController volverá a comprobar:
+             *
+             * - que la campaña pertenece al tenant;
+             * - que el usuario pertenece al tenant;
+             * - que el usuario es AGENTE;
+             * - que está activo;
+             * - que no está ya asignado.
+             */
+            $resultado = $campaignUserController->store(
+                $tenantId,
+                $id,
+                $userId
+            );
+
+
+            /*
+             * Guardar mensaje para mostrarlo en caso de error.
+             */
+            $message = $resultado['message'];
+
+
+            /*
+             * Después de una asignación correcta redirigimos.
+             *
+             * Esto evita reenviar el formulario al actualizar la página.
+             */
+            if ($resultado['success']) {
+
+                header('Location: campaign_agents.php?id=' . $id);
+                exit;
+            }
+        }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cambiar estado de asignación
+    |--------------------------------------------------------------------------
+    */
+
+    } elseif ($operation === 'status') {
+
+        /*
+         * Obtener el ID de la asignación.
+         *
+         * Este NO es el user_id.
+         *
+         * Es el ID de la fila existente en campaign_users.
+         */
+        $campaignUserId = isset($_POST['campaign_user_id'])
+            ? (int) $_POST['campaign_user_id']
+            : 0;
+
+
+        /*
+         * Obtener el nuevo estado.
+         */
+        $status = isset($_POST['status'])
+            ? strtoupper(trim($_POST['status']))
+            : '';
+
+
+        /*
+         * Validar ID de asignación.
+         */
+        if ($campaignUserId <= 0) {
+
+            $message = 'Asignación inválida.';
+
+        /*
+         * Validar estado antes de enviarlo al controlador.
+         */
+        } elseif (!in_array(
+            $status,
+            ['ACTIVE', 'INACTIVE'],
+            true
+        )) {
+
+            $message = 'Estado no válido.';
+
+        } else {
+
+            /*
+             * Delegar el cambio de estado al controlador.
+             *
+             * CampaignUserController::cambiarEstado()
+             * vuelve a validar:
+             *
+             * - autenticación;
+             * - campaigns.edit;
+             * - tenant;
+             * - ID de asignación;
+             * - estado permitido.
+             */
+            $resultado = $campaignUserController->cambiarEstado(
+                $tenantId,
+                $campaignUserId,
+                $status
+            );
+
+
+            /*
+             * Guardar mensaje en caso de error.
+             */
+            $message = $resultado['message'];
+
+
+            /*
+             * Si el cambio fue correcto, redirigimos.
+             */
+            if ($resultado['success']) {
+
+                header('Location: campaign_agents.php?id=' . $id);
+                exit;
+            }
+        }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Operación desconocida
+    |--------------------------------------------------------------------------
+    */
 
     } else {
 
         /*
-         * Delegar la asignación al controlador.
-         *
-         * El CampaignUserController volverá a comprobar:
-         *
-         * - que la campaña pertenece al tenant;
-         * - que el usuario pertenece al tenant;
-         * - que el usuario es un AGENTE;
-         * - que está activo;
-         * - que no está ya asignado.
+         * No permitimos ejecutar operaciones POST que no estén
+         * explícitamente definidas.
          */
-
-        $resultado = $campaignUserController->store(
-            $tenantId,
-            $id,
-            $userId
-        );
-
-
-        /*
-         * Guardar el mensaje para mostrarlo en la vista.
-         */
-
-        $message = $resultado['message'];
-
-
-        /*
-         * Si la asignación fue correcta, redirigimos.
-         *
-         * Esto evita reenviar el formulario al actualizar la página.
-         */
-
-        if ($resultado['success']) {
-
-            header('Location: campaign_agents.php?id=' . $id);
-            exit;
-        }
+        $message = 'Operación no válida.';
     }
 }
 
@@ -246,3 +367,4 @@ $availableAgents = $campaignUserController->agentesDisponibles(
 */
 
 require_once __DIR__ . '/views/campaigns/agents.php';
+?>
