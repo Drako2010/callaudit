@@ -125,33 +125,82 @@ class CampaignUser
         }
     }
 
-    /**
-     * Cambiar estado de una asignación.
+/**
+ * Cambiar estado de una asignación.
+ *
+ * La asignación se identifica utilizando tres datos:
+ *
+ * - tenant_id
+ * - campaign_id
+ * - id de campaign_users
+ *
+ * Esto garantiza que solamente podamos modificar una
+ * asignación que pertenezca exactamente a la campaña
+ * que estamos administrando.
+ */
+public function cambiarEstado(
+    int $tenantId,
+    int $campaignId,
+    int $campaignUserId,
+    string $status
+): bool {
+
+    /*
+     * Si no existe conexión con la base de datos,
+     * no podemos realizar la operación.
      */
-    public function cambiarEstado(
-        int $tenantId,
-        int $campaignUserId,
-        string $status
-    ): bool {
-        if ($this->db === null) {
-            return false;
-        }
-
-        $sql = "UPDATE campaign_users
-                SET status = :status
-                WHERE id = :id
-                  AND tenant_id = :tenant_id";
-
-        $stmt = $this->db->prepare($sql);
-
-        $stmt->execute([
-            ':status' => $status,
-            ':id' => $campaignUserId,
-            ':tenant_id' => $tenantId
-        ]);
-
-        return $stmt->rowCount() > 0;
+    if ($this->db === null) {
+        return false;
     }
+
+
+    /*
+     * Actualizamos el estado de la asignación.
+     *
+     * IMPORTANTE:
+     *
+     * No buscamos solamente por "id".
+     *
+     * También verificamos tenant_id y campaign_id.
+     *
+     * De esta manera evitamos que una petición pueda
+     * modificar una asignación perteneciente a otra
+     * campaña del mismo tenant.
+     */
+    $sql = "UPDATE campaign_users
+            SET status = :status
+            WHERE id = :id
+              AND tenant_id = :tenant_id
+              AND campaign_id = :campaign_id";
+
+
+    /*
+     * Preparar la consulta para utilizar parámetros
+     * y evitar insertar directamente valores recibidos
+     * desde el usuario dentro del SQL.
+     */
+    $stmt = $this->db->prepare($sql);
+
+
+    /*
+     * Enviar los valores correspondientes a cada
+     * parámetro de la consulta.
+     */
+    $stmt->execute([
+        ':status' => $status,
+        ':id' => $campaignUserId,
+        ':tenant_id' => $tenantId,
+        ':campaign_id' => $campaignId
+    ]);
+
+
+    /*
+     * Si se modificó al menos una fila, la operación
+     * fue realizada correctamente.
+     */
+    return $stmt->rowCount() > 0;
+}
+
 
     /**
      * Listar agentes activos del tenant que todavía
@@ -165,6 +214,17 @@ class CampaignUser
             return [];
         }
 
+
+        /*
+         * Buscar usuarios que:
+         *
+         * - pertenezcan al tenant indicado;
+         * - tengan un rol perteneciente al mismo tenant;
+         * - tengan el rol AGENTE;
+         * - tengan el rol AGENTE activo;
+         * - estén activos;
+         * - todavía no estén asignados a esta campaña.
+         */
         $sql = "SELECT
                     u.id,
                     u.name,
@@ -177,6 +237,7 @@ class CampaignUser
                 WHERE u.tenant_id = :user_tenant_id
                   AND r.tenant_id = :role_tenant_id
                   AND r.slug = 'AGENTE'
+                  AND r.status = 'ACTIVE'
                   AND u.status = 'ACTIVE'
                   AND NOT EXISTS (
                       SELECT 1
@@ -186,6 +247,7 @@ class CampaignUser
                         AND cu.user_id = u.id
                   )
                 ORDER BY u.name ASC";
+
 
         $stmt = $this->db->prepare($sql);
 
@@ -215,6 +277,16 @@ class CampaignUser
             return false;
         }
 
+
+        /*
+         * Verificar que el usuario:
+         *
+         * - pertenezca al tenant;
+         * - esté activo;
+         * - tenga el rol AGENTE;
+         * - el rol AGENTE esté activo;
+         * - no esté asignado actualmente a la campaña.
+         */
         $sql = "SELECT u.id
                 FROM users u
                 INNER JOIN user_roles ur
@@ -226,6 +298,7 @@ class CampaignUser
                   AND u.status = 'ACTIVE'
                   AND r.tenant_id = :role_tenant_id
                   AND r.slug = 'AGENTE'
+                  AND r.status = 'ACTIVE'
                   AND NOT EXISTS (
                       SELECT 1
                       FROM campaign_users cu

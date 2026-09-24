@@ -283,23 +283,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         } else {
 
-            /*
-             * Delegar el cambio de estado al controlador.
-             *
-             * CampaignUserController::cambiarEstado()
-             * vuelve a validar:
-             *
-             * - autenticación;
-             * - campaigns.edit;
-             * - tenant;
-             * - ID de asignación;
-             * - estado permitido.
-             */
-            $resultado = $campaignUserController->cambiarEstado(
-                $tenantId,
-                $campaignUserId,
-                $status
-            );
+                /*
+                 * Cambiar el estado de la asignación.
+                 *
+                 * $id corresponde a la campaña que estamos administrando.
+                 * También enviamos el ID de la asignación y el nuevo estado.
+                 */
+                $resultado = $campaignUserController->cambiarEstado(
+                    $tenantId,
+                    $id,
+                    $campaignUserId,
+                    $status
+                );
 
 
             /*

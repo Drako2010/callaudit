@@ -399,16 +399,24 @@ class CampaignUserController
     | Activar/desactivar una asignación modifica datos.
     |
     | Por eso requiere campaigns.edit.
+    |
+    | Además recibimos campaignId para garantizar que la asignación
+    | que se modifica pertenece exactamente a la campaña que estamos
+    | administrando.
     */
 
     public function cambiarEstado(
         int $tenantId,
+        int $campaignId,
         int $campaignUserId,
         string $status
     ): array {
 
         /*
-         * Validar permiso y ámbito.
+         * Validar autenticación, permiso y ámbito del tenant.
+         *
+         * Un usuario normal solamente podrá operar sobre su empresa.
+         * Un usuario global podrá operar sobre el tenant seleccionado.
          */
         $this->validarAccesoTenant(
             $tenantId,
@@ -417,7 +425,19 @@ class CampaignUserController
 
 
         /*
-         * Validar ID de asignación.
+         * Validar que el ID de la campaña sea válido.
+         */
+        if ($campaignId <= 0) {
+
+            return [
+                'success' => false,
+                'message' => 'Campaña inválida.'
+            ];
+        }
+
+
+        /*
+         * Validar que el ID de la asignación sea válido.
          */
         if ($campaignUserId <= 0) {
 
@@ -429,7 +449,11 @@ class CampaignUserController
 
 
         /*
-         * Validar estado.
+         * Validar que el estado recibido sea uno de los
+         * estados permitidos por la aplicación.
+         *
+         * No confiamos directamente en el valor recibido
+         * mediante POST.
          */
         if (!in_array(
             $status,
@@ -445,29 +469,71 @@ class CampaignUserController
 
 
         /*
-         * Cambiar estado.
+         * Verificar que la campaña pertenece al tenant indicado.
          *
-         * El modelo debe utilizar tenant_id junto con el ID de asignación.
+         * obtenerCampania() utiliza tenant_id + campaign_id,
+         * por lo que una campaña de otra empresa no será aceptada.
+         */
+        $campania = $this->obtenerCampania(
+            $tenantId,
+            $campaignId
+        );
+
+
+        if ($campania === null) {
+
+            return [
+                'success' => false,
+                'message' => 'La campaña no pertenece a esta empresa.'
+            ];
+        }
+
+
+        /*
+         * Cambiar el estado de la asignación.
+         *
+         * Ahora enviamos también campaignId al modelo.
+         *
+         * El modelo verificará:
+         *
+         * tenant_id
+         * +
+         * campaign_id
+         * +
+         * campaign_user_id
+         *
+         * antes de ejecutar el UPDATE.
          */
         $resultado = $this->campaignUser->cambiarEstado(
             $tenantId,
+            $campaignId,
             $campaignUserId,
             $status
         );
 
 
+        /*
+         * Si no se modificó ninguna fila significa que la
+         * asignación no existe dentro de esa campaña y tenant.
+         */
         if (!$resultado) {
 
             return [
                 'success' => false,
-                'message' => 'No se encontró la asignación.'
+                'message' => 'No se encontró la asignación en esta campaña.'
             ];
         }
 
 
+        /*
+         * Operación realizada correctamente.
+         */
         return [
             'success' => true,
             'message' => 'Estado actualizado correctamente.'
         ];
     }
+
+
+
 }
