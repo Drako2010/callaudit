@@ -8,6 +8,7 @@
 | encargado de modificar el estado de la campaña.
 */
 
+require_once __DIR__ . '/services/CsrfService.php'; // Token
 require_once __DIR__ . '/services/AuthMiddleware.php';
 require_once __DIR__ . '/controllers/CampaignController.php';
 
@@ -20,6 +21,8 @@ require_once __DIR__ . '/controllers/CampaignController.php';
 |
 | Por eso utilizamos campaigns.edit.
 */
+
+$csrf = new CsrfService(); // Token
 
 $auth = new AuthMiddleware();
 
@@ -86,6 +89,15 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
+/*
+|--------------------------------------------------------------------------
+| Validación CSRF
+|--------------------------------------------------------------------------
+| Antes de aceptar el cambio de estado comprobamos que la solicitud
+| provenga de un formulario generado por nuestra aplicación.
+*/
+
+$csrf->validarRequest();
 
 /*
 |--------------------------------------------------------------------------

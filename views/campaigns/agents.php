@@ -1,3 +1,10 @@
+<?php
+
+require_once __DIR__ . '/../../services/CsrfService.php';
+
+$csrf = new CsrfService();
+
+?>
 <!DOCTYPE html>
 
 <html lang="es">
@@ -230,6 +237,14 @@
             method="POST"
             action="campaign_agents.php?id=<?= (int) $id ?>"
         >
+            <!--
+                Token
+            -->
+            <input
+                type="hidden"
+                name="csrf_token"
+                value="<?= htmlspecialchars($csrf->token()) ?>"
+            >
 
             <!--
                 Indicamos explícitamente que este formulario
@@ -401,6 +416,15 @@
                                 action="campaign_agents.php?id=<?= (int) $id ?>"
                             >
 
+                                <!--
+                                    Token
+                                -->
+                                <input
+                                    type="hidden"
+                                    name="csrf_token"
+                                    value="<?= htmlspecialchars($csrf->token()) ?>"
+                                >
+
                                 <input
                                     type="hidden"
                                     name="operation"
@@ -435,6 +459,15 @@
                                 method="POST"
                                 action="campaign_agents.php?id=<?= (int) $id ?>"
                             >
+
+                                <!--
+                                    Token
+                                -->
+                                <input
+                                    type="hidden"
+                                    name="csrf_token"
+                                    value="<?= htmlspecialchars($csrf->token()) ?>"
+                                >
 
                                 <input
                                     type="hidden"

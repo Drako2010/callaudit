@@ -10,6 +10,7 @@
 
 require_once __DIR__ . '/services/AuthMiddleware.php';
 require_once __DIR__ . '/controllers/CampaignController.php';
+require_once __DIR__ . '/services/CsrfService.php';  // TOKEN
 
 
 /*
@@ -28,6 +29,7 @@ $auth = new AuthMiddleware();
 
 $auth->requierePermiso('campaigns.create');
 
+$csrf = new CsrfService(); // Variable Token
 
 /*
 |--------------------------------------------------------------------------
@@ -119,6 +121,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
      * El controlador volverá a validar los datos antes de enviarlos
      * al modelo.
      */
+
+    $csrf->validarRequest();
 
     $name = $_POST['name'] ?? '';
 

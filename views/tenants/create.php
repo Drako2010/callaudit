@@ -24,7 +24,12 @@
     <?php endif; ?>
 
     <form method="POST">
-
+            // Token
+            <input
+                type="hidden"
+                name="csrf_token"
+                value="<?= htmlspecialchars($csrf->token()) ?>"
+            >
         <div>
 
             <label for="name">

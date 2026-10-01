@@ -10,6 +10,7 @@
 
 require_once __DIR__ . '/services/AuthMiddleware.php';
 require_once __DIR__ . '/controllers/CampaignController.php';
+require_once __DIR__ . '/services/CsrfService.php'; // Token
 
 
 /*
@@ -23,6 +24,8 @@ require_once __DIR__ . '/controllers/CampaignController.php';
 |
 | La autorización se realiza en backend.
 */
+
+$csrf = new CsrfService();
 
 $auth = new AuthMiddleware();
 
@@ -170,6 +173,12 @@ $message = '';
 */
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    /*
+     * Validar token CSRF antes de actualizar la campaña.
+     */
+    $csrf->validarRequest();
+
 
     /*
      * Obtener datos enviados por el formulario.

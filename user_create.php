@@ -9,6 +9,7 @@
 | el usuario de forma segura y transaccional.
 */
 
+require_once __DIR__ . '/services/CsrfService.php'; // Token
 require_once __DIR__ . '/services/AuthMiddleware.php';
 require_once __DIR__ . '/services/SessionService.php';
 require_once __DIR__ . '/models/Tenant.php';
@@ -29,7 +30,7 @@ require_once __DIR__ . '/controllers/UserController.php';
 
 $middleware = new AuthMiddleware();
 $middleware->requierePermiso('users.create');
-
+$csrf = new CsrfService(); // Token
 
 /*
 |--------------------------------------------------------------------------
@@ -167,6 +168,17 @@ if ($selectedTenantId > 0) {
 */
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Validar CSRF
+    |--------------------------------------------------------------------------
+    | Esta validación se realiza antes de procesar la creación
+    | del nuevo usuario.
+    */
+
+    $csrf->validarRequest();
+    
 
     $password = $_POST['password'] ?? '';
 

@@ -1,3 +1,10 @@
+<?php
+
+require_once __DIR__ . '/../../services/CsrfService.php';
+
+$csrf = new CsrfService();
+
+?>
 <!DOCTYPE html>
 <html lang="es">
 
@@ -38,6 +45,15 @@
         el permiso campaigns.edit antes de actualizar.
     -->
     <form method="POST">
+            <!--
+                Token CSRF obligatorio para modificar la campaña.
+            -->
+            <input
+                type="hidden"
+                name="csrf_token"
+                value="<?= htmlspecialchars($csrf->token()) ?>"
+            >
+
 
         <div>
 

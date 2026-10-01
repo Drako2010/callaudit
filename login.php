@@ -1,10 +1,11 @@
 <?php
-
+require_once __DIR__ . '/services/CsrfService.php'; // Token
 require_once __DIR__ . '/services/AuthService.php';
 require_once __DIR__ . '/services/SessionService.php';
 
 $auth = new AuthService();
 $session = new SessionService();
+$csrf = new CsrfService(); // Token
 
 if ($session->estaAutenticado()) {
     header('Location: dashboard.php');
@@ -14,6 +15,10 @@ if ($session->estaAutenticado()) {
 $message = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    /*
+     * Validar CSRF antes de intentar autenticar.
+     */
+    $csrf->validarRequest();
 
     $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
@@ -71,7 +76,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php endif; ?>
 
     <form method="POST">
-
+        // Token
+        <input
+            type="hidden"
+            name="csrf_token"
+            value="<?= htmlspecialchars($csrf->token()) ?>"
+        >
         <div>
             <label for="email">
                 Correo electrónico:

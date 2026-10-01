@@ -1,3 +1,10 @@
+<?php
+
+require_once __DIR__ . '/../../services/CsrfService.php';
+
+$csrf = new CsrfService();
+
+?>
 <!DOCTYPE html>
 <html lang="es">
 
@@ -24,6 +31,16 @@
     <?php endif; ?>
 
     <form method="POST">
+
+            <!--
+                Token CSRF generado por el servidor y asociado
+                a la sesión actual.
+            -->
+            <input
+                type="hidden"
+                name="csrf_token"
+                value="<?= htmlspecialchars($csrf->token()) ?>"
+            >
 
         <div>
 

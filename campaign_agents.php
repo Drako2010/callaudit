@@ -8,6 +8,7 @@
 | y administrar los agentes de una campaña.
 */
 
+require_once __DIR__ . '/services/CsrfService.php'; // Token
 require_once __DIR__ . '/services/AuthMiddleware.php';
 require_once __DIR__ . '/controllers/CampaignController.php';
 require_once __DIR__ . '/controllers/CampaignUserController.php';
@@ -23,6 +24,7 @@ $auth = new AuthMiddleware();
 
 $usuario = $auth->usuario();
 
+$csrf = new CsrfService(); // Token
 
 /*
 |--------------------------------------------------------------------------
@@ -154,6 +156,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $message = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    /*
+    |--------------------------------------------------------------------------
+    | Protección CSRF
+    |--------------------------------------------------------------------------
+    | Todas las operaciones POST de esta página modifican información:
+    |
+    | assign
+    | status
+    |
+    | Por eso ambas requieren un token válido.
+    */
+
+    $csrf->validarRequest();
 
     /*
     |--------------------------------------------------------------------------
