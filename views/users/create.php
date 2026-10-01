@@ -38,9 +38,9 @@
 
     <form method="POST" action="">
 
-        /*
+        <!--
          * Token
-         */
+         -->
         <input
             type="hidden"
             name="csrf_token"

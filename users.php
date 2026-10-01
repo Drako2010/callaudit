@@ -1,28 +1,62 @@
 <?php
 
+/*
+|--------------------------------------------------------------------------
+| Dependencias
+|--------------------------------------------------------------------------
+*/
+
+require_once __DIR__ . '/services/AuthMiddleware.php';
 require_once __DIR__ . '/controllers/UserController.php';
+
+
+/*
+|--------------------------------------------------------------------------
+| Protección de acceso
+|--------------------------------------------------------------------------
+|
+| Para consultar el listado de usuarios se requiere:
+|
+| - usuario autenticado;
+| - permiso users.view.
+|
+| El controlador también realizará la validación correspondiente.
+|
+*/
+
+$auth = new AuthMiddleware();
+
+$auth->requierePermiso('users.view');
+
+
+/*
+|--------------------------------------------------------------------------
+| Controlador
+|--------------------------------------------------------------------------
+*/
 
 $controller = new UserController();
 
-$users = $controller->index(); // Llama al objeto index del controlador UserController.php quien enviara la informacion de los usuarios obtenida desde el modelo
-
-// y luego envía esa información a: require_once __DIR__ . '/views/users/index.php';
-require_once __DIR__ . '/views/users/index.php';
-
-// Por eso en la vista podemos utilizar: $users sin hacer ninguna consulta SQL desde la vista.
 
 /*
-
-El recorrido:  EN LA VISTA  :  require_once __DIR__ . '/views/users/index.php';
-
-foreach ($users as $user)
-
-genera una fila por cada usuario.
-
-Y algo importante:
-
-htmlspecialchars($user['name'])
-
-protege la salida HTML frente a contenido que pudiera interpretarse como código HTML/JavaScript.
-
+|--------------------------------------------------------------------------
+| Obtener usuarios
+|--------------------------------------------------------------------------
+|
+| El Controller determinará posteriormente el ámbito:
+|
+| - usuario GLOBAL -> usuarios de todas las empresas;
+| - usuario TENANT -> solamente usuarios de su empresa.
+|
 */
+
+$users = $controller->index();
+
+
+/*
+|--------------------------------------------------------------------------
+| Cargar vista
+|--------------------------------------------------------------------------
+*/
+
+require_once __DIR__ . '/views/users/index.php';

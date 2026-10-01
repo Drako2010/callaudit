@@ -156,18 +156,94 @@ class UserController
      * LISTAR USUARIOS
      * ========================================================
      *
-     * Mantiene el comportamiento actual del controlador.
+     * La consulta de usuarios está sujeta a:
      *
-     * La protección de acceso al listado deberá mantenerse
-     * también en la entrada correspondiente mediante
-     * AuthMiddleware.
+     * - autenticación;
+     * - permiso users.view;
+     * - ámbito del usuario.
+     *
+     * El usuario GLOBAL puede consultar todas las empresas.
+     *
+     * El usuario perteneciente a una empresa solamente puede
+     * consultar usuarios de su propia empresa.
+     *
+     * El ámbito se determina desde la sesión y NO desde
+     * parámetros enviados por el navegador.
      *
      * ========================================================
      */
 
     public function index(): array
     {
-        return $this->user->listar();
+        /*
+         * Obtener usuario autenticado.
+         */
+        $usuarioActual = $this->session->obtenerUsuario();
+
+
+        /*
+         * Si no existe sesión válida, no devolver información.
+         */
+        if ($usuarioActual === null) {
+            return [];
+        }
+
+
+        /*
+         * ID del usuario actual.
+         */
+        $usuarioActualId = (int) $usuarioActual['id'];
+
+
+        /*
+         * ====================================================
+         * VALIDAR PERMISO
+         * ====================================================
+         *
+         * La página ya utiliza AuthMiddleware, pero el
+         * Controller también debe proteger la operación.
+         */
+
+        if (!$this->authorization->tienePermiso(
+            $usuarioActualId,
+            'users.view'
+        )) {
+            return [];
+        }
+
+
+        /*
+         * ====================================================
+         * DETERMINAR ÁMBITO
+         * ====================================================
+         *
+         * tenant_id = NULL
+         * ----------------
+         * Usuario GLOBAL.
+         *
+         * tenant_id != NULL
+         * ------------------
+         * Usuario perteneciente a una empresa.
+         */
+
+        $tenantActual = $usuarioActual['tenant_id'] !== null
+            ? (int) $usuarioActual['tenant_id']
+            : null;
+
+
+        /*
+         * ====================================================
+         * CONSULTA SEGÚN ÁMBITO
+         * ====================================================
+         *
+         * El modelo recibe el ámbito determinado desde la
+         * sesión.
+         *
+         * Nunca utilizamos un tenant_id recibido desde GET
+         * o POST para decidir qué usuarios puede consultar.
+         */
+
+        return $this->user->listarPorAmbito($tenantActual);
     }
 
 
@@ -217,8 +293,7 @@ class UserController
 
         $email = trim($email);
 
-        $password = trim($password);
-
+        
 
         /*
          * ====================================================

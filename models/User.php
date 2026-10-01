@@ -104,6 +104,113 @@ class User
 
 
     /**
+     * Lista usuarios según el ámbito autorizado.
+     *
+     * Regla de CallAudit:
+     *
+     * - tenantId = null:
+     *   usuario GLOBAL.
+     *   Puede consultar usuarios de todas las empresas.
+     *
+     * - tenantId != null:
+     *   usuario perteneciente a una empresa.
+     *   Solamente puede consultar usuarios de esa empresa.
+     *
+     * Importante:
+     *
+     * El tenantId utilizado aquí proviene del Controller,
+     * que a su vez lo obtiene de la sesión autenticada.
+     *
+     * No proviene directamente del navegador.
+     *
+     * @param int|null $tenantId ID de la empresa o null para GLOBAL.
+     *
+     * @return array Lista de usuarios.
+     */
+    public function listarPorAmbito(?int $tenantId): array
+    {
+        /*
+         * Si no existe conexión con la base de datos,
+         * devolvemos un arreglo vacío.
+         */
+        if ($this->db === null) {
+            return [];
+        }
+
+
+        /*
+         * ====================================================
+         * USUARIO GLOBAL
+         * ====================================================
+         *
+         * tenantId = NULL significa que el usuario pertenece
+         * al ámbito GLOBAL.
+         *
+         * En este caso podemos consultar usuarios de todas
+         * las empresas.
+         */
+        if ($tenantId === null) {
+
+            $sql = "SELECT
+                        u.id,
+                        u.tenant_id,
+                        t.name AS tenant_name,
+                        u.name,
+                        u.email,
+                        u.status,
+                        u.created_at,
+                        u.updated_at
+                    FROM users u
+                    INNER JOIN tenants t
+                        ON t.id = u.tenant_id
+                    ORDER BY u.id DESC";
+
+
+            $stmt = $this->db->query($sql);
+
+
+            return $stmt->fetchAll();
+        }
+
+
+        /*
+         * ====================================================
+         * USUARIO DE EMPRESA
+         * ====================================================
+         *
+         * En este caso la consulta queda obligatoriamente
+         * limitada al tenant determinado por la sesión.
+         */
+
+        $sql = "SELECT
+                    u.id,
+                    u.tenant_id,
+                    t.name AS tenant_name,
+                    u.name,
+                    u.email,
+                    u.status,
+                    u.created_at,
+                    u.updated_at
+                FROM users u
+                INNER JOIN tenants t
+                    ON t.id = u.tenant_id
+                WHERE u.tenant_id = :tenant_id
+                ORDER BY u.id DESC";
+
+
+        $stmt = $this->db->prepare($sql);
+
+
+        $stmt->execute([
+            ':tenant_id' => $tenantId
+        ]);
+
+
+        return $stmt->fetchAll();
+    }
+
+
+    /**
      * Verifica si un correo electrónico ya está registrado
      * dentro de una empresa determinada.
      *
