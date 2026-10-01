@@ -76,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php endif; ?>
 
     <form method="POST">
-        // Token
+        <!-- Token -->
         <input
             type="hidden"
             name="csrf_token"

@@ -1,13 +1,13 @@
 <?php
-
 require_once __DIR__ . '/services/AuthMiddleware.php';
+require_once __DIR__ . '/services/CsrfService.php'; // Token
 
 $middleware = new AuthMiddleware();
 
 $middleware->requierePermiso('dashboard.view');
 
 $usuario = $middleware->usuario();
-
+$csrf = new CsrfService();  // Token
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -60,7 +60,19 @@ $usuario = $middleware->usuario();
         <hr>
 
         <p>
-            <a href="logout.php">Cerrar sesión</a>
+            <form method="POST" action="logout.php">
+
+                <input
+                    type="hidden"
+                    name="csrf_token"
+                    value="<?= htmlspecialchars($csrf->token()) ?>"
+                >
+
+                <button type="submit">
+                    Cerrar sesión
+                </button>
+
+            </form>
         </p>
 
     <?php endif; ?>
