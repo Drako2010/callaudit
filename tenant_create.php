@@ -1,36 +1,106 @@
 <?php
-// Token
+
+/*
+|--------------------------------------------------------------------------
+| Dependencias
+|--------------------------------------------------------------------------
+*/
+
+require_once __DIR__ . '/services/AuthMiddleware.php';
 require_once __DIR__ . '/services/CsrfService.php';
-// Carga el controlador
 require_once __DIR__ . '/controllers/TenantController.php';
-// Creamos nestro controlador
-$controller = new TenantController();
-//Token
+
+
+/*
+|--------------------------------------------------------------------------
+| Protección de acceso
+|--------------------------------------------------------------------------
+| Crear una empresa es una operación GLOBAL.
+|
+| Se requiere:
+| - autenticación;
+| - permiso tenants.create;
+| - usuario GLOBAL.
+|
+| El Controller volverá a validar el ámbito global.
+|--------------------------------------------------------------------------
+*/
+
+$auth = new AuthMiddleware();
+
+$auth->requierePermiso('tenants.create');
+
+
+/*
+|--------------------------------------------------------------------------
+| Servicios
+|--------------------------------------------------------------------------
+*/
+
 $csrf = new CsrfService();
+
+$controller = new TenantController();
 
 $message = '';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') { // preguntamos: ¿El usuario acaba de enviar el formulario? Si es así:
+
+/*
+|--------------------------------------------------------------------------
+| Procesamiento del formulario
+|--------------------------------------------------------------------------
+*/
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
     /*
-     * Validamos CSRF antes de procesar la creación de la empresa.
+     * Validar CSRF antes de procesar el cambio.
      */
     $csrf->validarRequest();
-    
-    // obtenemos los valores enviados.
+
+
+    /*
+     * Obtener datos enviados.
+     */
     $name = $_POST['name'] ?? '';
+
     $slug = $_POST['slug'] ?? '';
 
-    // mandamos los datos al Controller.
-    $result = $controller->store($name, $slug);
+
+    /*
+     * Crear empresa.
+     *
+     * El Controller vuelve a validar:
+     * - permiso;
+     * - ámbito GLOBAL;
+     * - datos;
+     * - slug duplicado.
+     */
+    $result = $controller->store(
+        $name,
+        $slug
+    );
+
 
     $message = $result['message'];
 
-    // Si la creación fue correcta: redirigimos al listado.
+
+    /*
+     * Si se creó correctamente,
+     * regresar al listado.
+     */
     if ($result['success']) {
+
         header('Location: tenants.php');
+
         exit;
     }
 }
 
-// cargamos la vista
+
+/*
+|--------------------------------------------------------------------------
+| Cargar vista
+|--------------------------------------------------------------------------
+*/
+
 require_once __DIR__ . '/views/tenants/create.php';

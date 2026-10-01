@@ -1,70 +1,193 @@
 <?php
 
-// Carga el modelo Tenant
+/*
+|--------------------------------------------------------------------------
+| Dependencias
+|--------------------------------------------------------------------------
+*/
+
 require_once __DIR__ . '/../models/Tenant.php';
+require_once __DIR__ . '/../services/AuthMiddleware.php';
+
 
 class TenantController
 {
     private Tenant $tenant;
 
+    private AuthMiddleware $auth;
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Constructor
+    |--------------------------------------------------------------------------
+    */
+
     public function __construct()
     {
         $this->tenant = new Tenant();
+
+        $this->auth = new AuthMiddleware();
     }
 
-/*
-El Controller dice:
 
-Necesito la lista de empresas.
+    /*
+    |--------------------------------------------------------------------------
+    | Validar acceso GLOBAL
+    |--------------------------------------------------------------------------
+    |
+    | La administración de empresas pertenece al ámbito GLOBAL.
+    |
+    | Se necesitan dos condiciones:
+    |
+    | 1. Tener el permiso correspondiente.
+    | 2. Ser un usuario GLOBAL (tenant_id = NULL).
+    |
+    | Tener solamente el permiso NO es suficiente.
+    |--------------------------------------------------------------------------
+    */
 
-Y delega el trabajo al modelo:   $this->tenant->listar();
-*/
+    private function validarAccesoGlobal(string $permission): void
+    {
+        /*
+         * Primero validar autenticación y permiso.
+         */
+        $this->auth->requierePermiso($permission);
+
+
+        /*
+         * Obtener usuario autenticado.
+         */
+        $usuario = $this->auth->usuario();
+
+
+        if ($usuario === null) {
+
+            http_response_code(401);
+
+            echo 'Usuario no autenticado.';
+
+            exit;
+        }
+
+
+        /*
+         * Un usuario GLOBAL no pertenece a ningún tenant.
+         *
+         * tenant_id = NULL
+         */
+        if ($usuario['tenant_id'] !== null) {
+
+            http_response_code(403);
+
+            echo 'Esta operación solamente está disponible para usuarios globales.';
+
+            exit;
+        }
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Listar empresas
+    |--------------------------------------------------------------------------
+    */
+
     public function index(): array
     {
+        /*
+         * Validar autorización antes de consultar la BD.
+         */
+        $this->validarAccesoGlobal('tenants.view');
+
+
+        /*
+         * Usuario autorizado:
+         * ahora sí podemos consultar las empresas.
+         */
         return $this->tenant->listar();
     }
 
-// Esta es la parte encargada de crear empresas.
+
+    /*
+    |--------------------------------------------------------------------------
+    | Crear empresa
+    |--------------------------------------------------------------------------
+    */
+
     public function store(string $name, string $slug): array
     {
-        // elimina espacios innecesarios.
+        /*
+         * Validar autorización antes de modificar la BD.
+         */
+        $this->validarAccesoGlobal('tenants.create');
+
+
+        /*
+         * Limpiar datos.
+         */
         $name = trim($name);
+
         $slug = trim($slug);
 
-        if ($name === '') { // comprueba que haya nombre.
+
+        /*
+         * Validar nombre.
+         */
+        if ($name === '') {
+
             return [
                 'success' => false,
                 'message' => 'El nombre de la empresa es obligatorio.'
             ];
         }
 
-        if ($slug === '') { // comprueba que haya slug.
+
+        /*
+         * Validar slug.
+         */
+        if ($slug === '') {
+
             return [
                 'success' => false,
                 'message' => 'El slug de la empresa es obligatorio.'
             ];
         }
 
-        if ($this->tenant->existeSlug($slug)) { // Aquí pregunta al modelo: ¿Ya existe este slug? 
-            // si ya existe retorna
+
+        /*
+         * Validar slug duplicado.
+         */
+        if ($this->tenant->existeSlug($slug)) {
+
             return [
                 'success' => false,
                 'message' => 'El slug ya está registrado.'
             ];
         }
 
-// Si todo está correcto: el modelo realiza el INSERT.
-        $creado = $this->tenant->crear($name, $slug);
 
-// Si esta vacio: con errores
+        /*
+         * Crear empresa.
+         */
+        $creado = $this->tenant->crear(
+            $name,
+            $slug
+        );
+
+
+        /*
+         * Verificar resultado.
+         */
         if (!$creado) {
+
             return [
                 'success' => false,
                 'message' => 'No se pudo crear la empresa.'
             ];
         }
 
-// despues del insert
+
         return [
             'success' => true,
             'message' => 'Empresa creada correctamente.'

@@ -24,7 +24,7 @@
     <?php endif; ?>
 
     <form method="POST">
-            // Token
+            <!-- Token -->
             <input
                 type="hidden"
                 name="csrf_token"
