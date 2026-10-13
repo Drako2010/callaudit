@@ -1,3 +1,4 @@
+
 <?php
 
 require_once __DIR__ . '/../config/database.php';
@@ -9,7 +10,6 @@ class Authorization
     public function __construct()
     {
         $database = new Database();
-
         $this->db = $database->connect();
     }
 
@@ -25,7 +25,6 @@ class Authorization
         /*
          * 1. Verificar que el usuario exista y esté activo.
          */
-
         $sqlUser = "SELECT
                         id,
                         tenant_id,
@@ -35,27 +34,21 @@ class Authorization
                     LIMIT 1";
 
         $stmtUser = $this->db->prepare($sqlUser);
-
         $stmtUser->execute([
             ':user_id' => $userId
         ]);
 
         $user = $stmtUser->fetch();
 
-        if ($user === false) {
-            return false;
-        }
-
-        if ($user['status'] !== 'ACTIVE') {
+        if ($user === false || $user['status'] !== 'ACTIVE') {
             return false;
         }
 
         /*
          * 2. Verificar DENY individual.
+         * DENY tiene prioridad sobre GRANT y los roles.
          */
-
-        $sqlDeny = "SELECT
-                        up.user_id
+        $sqlDeny = "SELECT up.user_id
                     FROM user_permissions up
                     INNER JOIN permissions p
                         ON p.id = up.permission_id
@@ -66,7 +59,6 @@ class Authorization
                     LIMIT 1";
 
         $stmtDeny = $this->db->prepare($sqlDeny);
-
         $stmtDeny->execute([
             ':user_id' => $userId,
             ':permission_slug' => $permissionSlug
@@ -79,20 +71,17 @@ class Authorization
         /*
          * 3. Verificar GRANT individual.
          */
-
-        $sqlGrant = "SELECT
-                        up.user_id
-                    FROM user_permissions up
-                    INNER JOIN permissions p
-                        ON p.id = up.permission_id
-                    WHERE up.user_id = :user_id
-                    AND p.slug = :permission_slug
-                    AND p.status = 'ACTIVE'
-                    AND up.effect = 'GRANT'
-                    LIMIT 1";
+        $sqlGrant = "SELECT up.user_id
+                     FROM user_permissions up
+                     INNER JOIN permissions p
+                         ON p.id = up.permission_id
+                     WHERE up.user_id = :user_id
+                     AND p.slug = :permission_slug
+                     AND p.status = 'ACTIVE'
+                     AND up.effect = 'GRANT'
+                     LIMIT 1";
 
         $stmtGrant = $this->db->prepare($sqlGrant);
-
         $stmtGrant->execute([
             ':user_id' => $userId,
             ':permission_slug' => $permissionSlug
@@ -103,11 +92,30 @@ class Authorization
         }
 
         /*
-         * 4. Verificar permisos provenientes de roles.
+         * 4. Verificar permisos heredados por roles.
+         *
+         * Usuario global:
+         * solo puede heredar de roles globales.
+         *
+         * Usuario de empresa:
+         * solo puede heredar de roles de su empresa.
          */
+        if ($user['tenant_id'] === null) {
+            $sqlRoleScope = "r.tenant_id IS NULL";
+            $roleParams = [
+                ':user_id' => $userId,
+                ':permission_slug' => $permissionSlug
+            ];
+        } else {
+            $sqlRoleScope = "r.tenant_id = :tenant_id";
+            $roleParams = [
+                ':user_id' => $userId,
+                ':permission_slug' => $permissionSlug,
+                ':tenant_id' => (int) $user['tenant_id']
+            ];
+        }
 
-        $sqlRole = "SELECT
-                        rp.role_id
+        $sqlRole = "SELECT rp.role_id
                     FROM user_roles ur
                     INNER JOIN roles r
                         ON r.id = ur.role_id
@@ -119,29 +127,19 @@ class Authorization
                     AND r.status = 'ACTIVE'
                     AND p.status = 'ACTIVE'
                     AND p.slug = :permission_slug
-                    AND (
-                        r.tenant_id IS NULL
-                        OR r.tenant_id = :tenant_id
-                    )
+                    AND {$sqlRoleScope}
                     LIMIT 1";
 
         $stmtRole = $this->db->prepare($sqlRole);
-
-        $stmtRole->execute([
-            ':user_id' => $userId,
-            ':permission_slug' => $permissionSlug,
-            ':tenant_id' => $user['tenant_id']
-        ]);
+        $stmtRole->execute($roleParams);
 
         if ($stmtRole->fetch() !== false) {
             return true;
         }
 
         /*
-         * 5. Si no existe ninguna autorización,
-         *    se deniega el acceso.
+         * 5. Denegar por defecto.
          */
-
         return false;
     }
 }
