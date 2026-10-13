@@ -89,24 +89,99 @@ class Tenant
     }
 
 // Este método inserta una nueva empresa
+
     public function crear(string $name, string $slug): bool
     {
         if ($this->db === null) {
             return false;
         }
 
+        // Matriz oficial de permisos por rol.
+        // Se usan slugs, no IDs numéricos.
+        $roles = [
+            [
+                'name' => 'Administrador',
+                'slug' => 'ADMIN',
+                'description' => 'Administrador de la empresa.',
+                'permissions' => [
+                    'users.view',
+                    'users.create',
+                    'users.edit',
+                    'users.delete',
+                    'roles.view',
+                    'roles.create',
+                    'roles.edit',
+                    'roles.delete',
+                    'permissions.view',
+                    'permissions.create',
+                    'permissions.edit',
+                    'permissions.delete',
+                    'audits.view',
+                    'audits.create',
+                    'audits.edit',
+                    'audits.delete',
+                    'calls.view',
+                    'campaigns.view',
+                    'campaigns.create',
+                    'campaigns.edit',
+                    'reports.view',
+                    'reports.export',
+                    'dashboard.view'
+                ]
+            ],
+            [
+                'name' => 'Supervisor',
+                'slug' => 'SUPERVISOR',
+                'description' => 'Supervisor de la empresa.',
+                'permissions' => [
+                    'users.view',
+                    'users.edit',
+                    'audits.view',
+                    'audits.create',
+                    'audits.edit',
+                    'audits.delete',
+                    'calls.view',
+                    'campaigns.view',
+                    'reports.view',
+                    'reports.export',
+                    'dashboard.view'
+                ]
+            ],
+            [
+                'name' => 'Auditor',
+                'slug' => 'AUDITOR',
+                'description' => 'Auditor de llamadas y evaluaciones.',
+                'permissions' => [
+                    'audits.view',
+                    'audits.create',
+                    'audits.edit',
+                    'calls.view',
+                    'reports.view',
+                    'reports.export',
+                    'dashboard.view'
+                ]
+            ],
+            [
+                'name' => 'Agente',
+                'slug' => 'AGENTE',
+                'description' => 'Usuario operativo de la empresa.',
+                'permissions' => [
+                    'calls.view',
+                    'dashboard.view'
+                ]
+            ]
+        ];
+
         try {
+            $this->db->beginTransaction();
 
-            $this->db->beginTransaction(); // abre una transacción "Empiezo a trabajar.". "Voy a realizar varias operaciones. Todavía no quiero que este conjunto de cambios quede confirmado definitivamente."
-
-            // Crear empresa
+            // 1. Crear empresa.
             $sqlTenant = "INSERT INTO tenants
                             (name, slug, status)
                           VALUES
                             (:name, :slug, 'ACTIVE')";
 
             $stmtTenant = $this->db->prepare($sqlTenant);
-
             $stmtTenant->execute([
                 ':name' => $name,
                 ':slug' => $slug
@@ -114,30 +189,7 @@ class Tenant
 
             $tenantId = (int) $this->db->lastInsertId();
 
-            // Roles base de la empresa
-            $roles = [
-                [
-                    'name' => 'Administrador',
-                    'slug' => 'ADMIN',
-                    'description' => 'Administrador de la empresa.'
-                ],
-                [
-                    'name' => 'Supervisor',
-                    'slug' => 'SUPERVISOR',
-                    'description' => 'Supervisor de la empresa.'
-                ],
-                [
-                    'name' => 'Auditor',
-                    'slug' => 'AUDITOR',
-                    'description' => 'Auditor de llamadas y evaluaciones.'
-                ],
-                [
-                    'name' => 'Agente',
-                    'slug' => 'AGENTE',
-                    'description' => 'Usuario operativo de la empresa.'
-                ]
-            ];
-
+            // 2. Preparar consultas.
             $sqlRole = "INSERT INTO roles
                             (tenant_id, name, slug, description, status)
                         VALUES
@@ -145,24 +197,62 @@ class Tenant
 
             $stmtRole = $this->db->prepare($sqlRole);
 
-            foreach ($roles as $role) {
+            $stmtPermission = $this->db->prepare(
+                "SELECT id
+                 FROM permissions
+                 WHERE slug = :slug
+                   AND status = 'ACTIVE'
+                 LIMIT 1"
+            );
 
+            $stmtRolePermission = $this->db->prepare(
+                "INSERT INTO role_permissions
+                    (role_id, permission_id, created_at)
+                 VALUES
+                    (:role_id, :permission_id, CURRENT_TIMESTAMP)"
+            );
+
+            // 3. Crear cada rol y asignar sus permisos.
+            foreach ($roles as $role) {
                 $stmtRole->execute([
                     ':tenant_id' => $tenantId,
                     ':name' => $role['name'],
                     ':slug' => $role['slug'],
                     ':description' => $role['description']
                 ]);
+
+                $roleId = (int) $this->db->lastInsertId();
+
+                foreach ($role['permissions'] as $permissionSlug) {
+                    $stmtPermission->execute([
+                        ':slug' => $permissionSlug
+                    ]);
+
+                    $permissionId = $stmtPermission->fetchColumn();
+
+                    // Si falta un permiso en el catálogo,
+                    // cancelar toda la operación.
+                    if ($permissionId === false) {
+                        throw new RuntimeException(
+                            'No existe el permiso activo: ' . $permissionSlug
+                        );
+                    }
+
+                    $stmtRolePermission->execute([
+                        ':role_id' => $roleId,
+                        ':permission_id' => (int) $permissionId
+                    ]);
+                }
             }
 
-            $this->db->commit(); // "Todo está correcto. GUARDAR." confirma toda la transaccion.
+            // 4. Confirmar únicamente si todo salió bien.
+            $this->db->commit();
 
             return true;
 
-        } catch (PDOException $e) {
-
-            if ($this->db->inTransaction()) { // "¿Actualmente esta conexión está dentro de una transacción?"
-                $this->db->rollBack(); // "Algo salió mal. DESHACER TODO." Si ocurre un error deshace todo.
+        } catch (Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
             }
 
             return false;
