@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 01-10-2026 a las 21:48:51
+-- Tiempo de generación: 13-10-2026 a las 21:37:52
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -20,8 +20,6 @@ SET time_zone = "+00:00";
 --
 -- Base de datos: `callaudit`
 --
-CREATE DATABASE IF NOT EXISTS `callaudit` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE `callaudit`;
 
 -- --------------------------------------------------------
 
@@ -171,7 +169,11 @@ INSERT INTO `roles` (`id`, `tenant_id`, `name`, `slug`, `description`, `status`,
 (29, 3, 'Agente', 'AGENTE', 'Usuario operativo de la empresa.', 'ACTIVE', '2026-09-17 20:46:26', '2026-09-17 20:46:26'),
 (30, 4, 'Agente', 'AGENTE', 'Usuario operativo de la empresa.', 'ACTIVE', '2026-09-17 20:46:26', '2026-09-17 20:46:26'),
 (31, 1, 'Agente', 'AGENTE', 'Usuario operativo de la empresa.', 'ACTIVE', '2026-09-17 20:46:26', '2026-09-17 20:46:26'),
-(32, 6, 'Agente', 'AGENTE', 'Usuario operativo de la empresa.', 'ACTIVE', '2026-09-17 20:46:26', '2026-09-17 20:46:26');
+(32, 6, 'Agente', 'AGENTE', 'Usuario operativo de la empresa.', 'ACTIVE', '2026-09-17 20:46:26', '2026-09-17 20:46:26'),
+(33, 10, 'Administrador', 'ADMIN', 'Administrador de la empresa.', 'ACTIVE', '2026-10-01 20:11:54', '2026-10-01 20:11:54'),
+(34, 10, 'Supervisor', 'SUPERVISOR', 'Supervisor de la empresa.', 'ACTIVE', '2026-10-01 20:11:54', '2026-10-01 20:11:54'),
+(35, 10, 'Auditor', 'AUDITOR', 'Auditor de llamadas y evaluaciones.', 'ACTIVE', '2026-10-01 20:11:54', '2026-10-01 20:11:54'),
+(36, 10, 'Agente', 'AGENTE', 'Usuario operativo de la empresa.', 'ACTIVE', '2026-10-01 20:11:54', '2026-10-01 20:11:54');
 
 -- --------------------------------------------------------
 
@@ -545,7 +547,8 @@ INSERT INTO `tenants` (`id`, `name`, `slug`, `status`, `created_at`, `updated_at
 (4, 'recupera sac', 'Demos SAC', 'ACTIVE', '2026-09-16 17:00:59', '2026-09-16 17:00:59'),
 (5, 'CallAudit Demo SAC', 'callaudit-demo-sac', 'ACTIVE', '2026-09-16 17:02:19', '2026-09-16 17:02:19'),
 (6, 'protecta sac', 'protecta-sac', 'ACTIVE', '2026-09-16 17:13:09', '2026-09-16 17:13:09'),
-(9, 'Empresa Roles Prueba', 'empresa-roles-prueba', 'ACTIVE', '2026-09-17 17:30:26', '2026-09-17 17:30:26');
+(9, 'Empresa Roles Prueba', 'empresa-roles-prueba', 'ACTIVE', '2026-09-17 17:30:26', '2026-09-17 17:30:26'),
+(10, 'REFINANCIA', 'REFINANCIA-TU-DEUDA', 'ACTIVE', '2026-10-01 20:11:54', '2026-10-01 20:11:54');
 
 -- --------------------------------------------------------
 
@@ -571,13 +574,15 @@ CREATE TABLE `users` (
 INSERT INTO `users` (`id`, `tenant_id`, `name`, `email`, `password`, `status`, `created_at`, `updated_at`) VALUES
 (7, NULL, 'Super Administrador', 'superadmin@callaudit.local', '$2y$10$kjzyAkYy9.DhUGL5AWAVG.kLkCuq3zxjWuXa1udR9uVa3i0ofotse', 'ACTIVE', '2026-09-24 15:45:55', '2026-09-24 16:53:46'),
 (8, 6, 'Administrador Protecta', 'admin.protecta@callaudit.local', '$2y$10$PelQGLqZ/GNkuA0QMQf6oOuNGsrWWTZEIa2KB1esdy.34EynuSTqK', 'ACTIVE', '2026-09-24 15:45:55', '2026-09-24 17:31:40'),
-(9, 6, 'Supervisor Protecta', 'supervisor.protecta@callaudit.local', '$2y$10$wvK8UTvcZtRFpNWSKEsvKOHJPyGHUJbtn7x.5xU3A7ccu5mvAtqqi', 'ACTIVE', '2026-09-24 15:45:55', '2026-09-24 15:45:55'),
+(9, 6, 'Supervisor Protecta', 'supervisor.protecta@callaudit.local', '$2y$10$dzk2wuq8J1h0JEOPhwHXmO/f.nB/Q1Q/CMpTPHE1fq5Y9Je12WHO2', 'ACTIVE', '2026-09-24 15:45:55', '2026-10-13 18:40:24'),
 (10, 6, 'Auditor Protecta', 'auditor.protecta@callaudit.local', '$2y$10$wvK8UTvcZtRFpNWSKEsvKOHJPyGHUJbtn7x.5xU3A7ccu5mvAtqqi', 'ACTIVE', '2026-09-24 15:45:56', '2026-09-24 15:45:56'),
 (11, 6, 'Prueba Supervisor', 'prueba.supervisor@callaudit.local', '$2y$10$EnJnZefcSzGxAmuIlqBax.uQOYLX/yoib.QjyfcfSC.8Vm0.TfaCy', 'ACTIVE', '2026-09-24 17:10:21', '2026-09-24 17:10:21'),
 (12, 6, 'Admin 2', 'prueba.admin2@callaudit.local', '$2y$10$f.h3ofcJByHVBG/tblZyuOadQeJwquMe3JCP2vCzsL3dHB9y4ETHm', 'ACTIVE', '2026-09-24 17:38:01', '2026-09-24 17:38:01'),
 (13, 6, 'Supervisor 2', 'prueba.supervisor2@callaudit.local', '$2y$10$YImtiikAe/k.vG/dY1PV4eyzAlUisY64lt2WWn.F4Wmrb66NmSuQ.', 'ACTIVE', '2026-09-24 17:39:26', '2026-09-24 17:39:26'),
 (14, 6, 'Auditor 2', 'prueba.auditor2@callaudit.local', '$2y$10$J/aDMcgVuOdNUvJbtwa6cuX4Q9wamsJC8G5gJRVKyAfYibWzqyTBy', 'ACTIVE', '2026-09-24 17:40:07', '2026-09-24 17:40:07'),
-(15, 6, 'Agente 2', 'prueba.agente2@callaudit.local', '$2y$10$D1waHIBbPBShhbrghDNkMeUGkJ9QUDeiepdqi4BWDGOz6fzSElg5W', 'ACTIVE', '2026-09-24 17:41:17', '2026-09-24 17:41:17');
+(15, 6, 'Agente 2', 'prueba.agente2@callaudit.local', '$2y$10$D1waHIBbPBShhbrghDNkMeUGkJ9QUDeiepdqi4BWDGOz6fzSElg5W', 'ACTIVE', '2026-09-24 17:41:17', '2026-09-24 17:41:17'),
+(16, 1, 'Usuario Prueba Multiempresa', 'prueba.multempresa@callaudit.local', '$2y$10$AxkW6bAhlUcEj1U6DUtECeHPmoGuoYClO/ypTQfLukjrltegVP4n2', 'ACTIVE', '2026-10-13 16:09:15', '2026-10-13 16:09:15'),
+(17, 2, 'Usuario Prueba Multiempresa', 'prueba.multempresa@callaudit.local', '$2y$10$AxkW6bAhlUcEj1U6DUtECeHPmoGuoYClO/ypTQfLukjrltegVP4n2', 'ACTIVE', '2026-10-13 16:09:15', '2026-10-13 16:09:15');
 
 -- --------------------------------------------------------
 
@@ -591,6 +596,13 @@ CREATE TABLE `user_permissions` (
   `effect` enum('GRANT','DENY') NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Volcado de datos para la tabla `user_permissions`
+--
+
+INSERT INTO `user_permissions` (`user_id`, `permission_id`, `effect`, `created_at`) VALUES
+(9, 6, 'GRANT', '2026-10-13 18:16:50');
 
 -- --------------------------------------------------------
 
@@ -617,7 +629,9 @@ INSERT INTO `user_roles` (`user_id`, `role_id`, `created_at`) VALUES
 (12, 11, '2026-09-24 17:38:01'),
 (13, 18, '2026-09-24 17:39:26'),
 (14, 25, '2026-09-24 17:40:07'),
-(15, 32, '2026-09-24 17:41:17');
+(15, 32, '2026-09-24 17:41:17'),
+(16, 17, '2026-10-13 16:09:15'),
+(17, 13, '2026-10-13 16:09:15');
 
 --
 -- Índices para tablas volcadas
@@ -716,19 +730,19 @@ ALTER TABLE `permissions`
 -- AUTO_INCREMENT de la tabla `roles`
 --
 ALTER TABLE `roles`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=33;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=37;
 
 --
 -- AUTO_INCREMENT de la tabla `tenants`
 --
 ALTER TABLE `tenants`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT de la tabla `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
 
 --
 -- Restricciones para tablas volcadas
