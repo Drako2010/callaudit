@@ -250,11 +250,32 @@ class Tenant
 
             return true;
 
+        
         } catch (Throwable $e) {
-            if ($this->db->inTransaction()) {
-                $this->db->rollBack();
+
+            // Intentar revertir toda la operación.
+            try {
+                if ($this->db->inTransaction()) {
+                    $this->db->rollBack();
+                }
+            } catch (Throwable $rollbackError) {
+                error_log(
+                    '[CallAudit][Tenant::crear][ROLLBACK] '
+                    . get_class($rollbackError)
+                    . ': ' . $rollbackError->getMessage()
+                );
             }
 
+            // Registrar el error técnico en el log del servidor.
+            error_log(
+                '[CallAudit][Tenant::crear] '
+                . get_class($e)
+                . ': ' . $e->getMessage()
+                . ' en ' . $e->getFile()
+                . ':' . $e->getLine()
+            );
+
+            // No exponer detalles internos al usuario.
             return false;
         }
     }
