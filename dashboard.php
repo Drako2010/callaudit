@@ -1,13 +1,42 @@
 <?php
+
+// Cargar los servicios de autenticación y protección.
 require_once __DIR__ . '/services/AuthMiddleware.php';
-require_once __DIR__ . '/services/CsrfService.php'; // Token
+require_once __DIR__ . '/services/CsrfService.php';
 
+// Crear las instancias.
 $middleware = new AuthMiddleware();
+$csrf = new CsrfService();
 
-$middleware->requierePermiso('dashboard.view');
+// Exigir que exista una sesión autenticada.
+$middleware->proteger();
 
+// Recuperar los datos del usuario desde la sesión del servidor.
 $usuario = $middleware->usuario();
-$csrf = new CsrfService();  // Token
+
+// Si no existe un usuario válido, volver al login.
+if ($usuario === null) {
+    header('Location: login.php');
+    exit;
+}
+
+// El panel de empresa no debe utilizarse para el acceso global.
+if (($usuario['scope'] ?? '') === 'GLOBAL') {
+    header('Location: global_dashboard.php');
+    exit;
+}
+
+// Rechazar sesiones que no correspondan al ámbito de una empresa.
+if (
+    ($usuario['scope'] ?? '') !== 'TENANT'
+    || $usuario['tenant_id'] === null
+) {
+    http_response_code(403);
+    exit('ACCESO DENEGADO');
+}
+
+// Verificar el permiso requerido para acceder al panel.
+$middleware->requierePermiso('dashboard.view');
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -19,63 +48,67 @@ $csrf = new CsrfService();  // Token
 <body>
 
     <h1>CallAudit</h1>
+    <h2>Panel de empresa</h2>
 
-    <h2>Dashboard</h2>
-
-    <?php if ($usuario !== null): ?>
-
-        <p>
-            Bienvenido,
-            <strong>
-                <?= htmlspecialchars($usuario['name']) ?>
-            </strong>
-        </p>
-
-        <hr>
-
-        <p>
-            <strong>ID de usuario:</strong>
-            <?= htmlspecialchars((string) $usuario['id']) ?>
-        </p>
-
-        <p>
-            <strong>Correo:</strong>
-            <?= htmlspecialchars($usuario['email']) ?>
-        </p>
-
-        <p>
-            <strong>Tenant ID:</strong>
+    <p>
+        Bienvenido,
+        <strong>
             <?= htmlspecialchars(
-                $usuario['tenant_id'] !== null
-                    ? (string) $usuario['tenant_id']
-                    : 'NULL'
+                $usuario['name'],
+                ENT_QUOTES,
+                'UTF-8'
             ) ?>
-        </p>
+        </strong>
+    </p>
 
-        <p>
-            <strong>Estado:</strong>
-            <?= htmlspecialchars($usuario['status']) ?>
-        </p>
+    <hr>
 
-        <hr>
+    <p>
+        <strong>ID de usuario:</strong>
+        <?= (int) $usuario['id'] ?>
+    </p>
 
-        <p>
-            <form method="POST" action="logout.php">
+    <p>
+        <strong>Correo:</strong>
+        <?= htmlspecialchars(
+            $usuario['email'],
+            ENT_QUOTES,
+            'UTF-8'
+        ) ?>
+    </p>
 
-                <input
-                    type="hidden"
-                    name="csrf_token"
-                    value="<?= htmlspecialchars($csrf->token()) ?>"
-                >
+    <p>
+        <strong>Tenant ID:</strong>
+        <?= (int) $usuario['tenant_id'] ?>
+    </p>
 
-                <button type="submit">
-                    Cerrar sesión
-                </button>
+    <p>
+        <strong>Estado:</strong>
+        <?= htmlspecialchars(
+            $usuario['status'],
+            ENT_QUOTES,
+            'UTF-8'
+        ) ?>
+    </p>
 
-            </form>
-        </p>
+    <hr>
 
-    <?php endif; ?>
+    <!-- Cerrar sesión mediante POST protegido por CSRF. -->
+    <form method="POST" action="logout.php">
+
+        <input
+            type="hidden"
+            name="csrf_token"
+            value="<?= htmlspecialchars(
+                $csrf->token(),
+                ENT_QUOTES,
+                'UTF-8'
+            ) ?>"
+        >
+
+        <button type="submit">Cerrar sesión</button>
+
+    </form>
 
 </body>
 </html>
