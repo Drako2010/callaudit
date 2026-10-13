@@ -646,6 +646,34 @@ class UserController
             ];
         }
 
+        
+        /*
+         * ====================================================
+         * 13.1 VALIDAR AUTORIDAD PARA ASIGNAR EL ROL
+         * ====================================================
+         *
+         * Comprobamos que el usuario autenticado esté autorizado
+         * a asignar específicamente el rol seleccionado.
+         *
+         * Tener users.create no concede automáticamente esta
+         * autoridad.
+         *
+         * La regla se valida en el servidor, independientemente
+         * de las opciones que muestre el formulario.
+         */
+
+        if (!$this->role->puedeAsignarRol(
+            $usuarioActualId,
+            $roleId,
+            $tenantId
+        )) {
+
+            return [
+                'success' => false,
+                'message' => 'No está autorizado para asignar el rol seleccionado.'
+            ];
+        }
+
 
         /*
          * ====================================================

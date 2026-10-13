@@ -158,6 +158,33 @@ $roles = [];
 if ($selectedTenantId > 0) {
 
     $roles = $roleModel->listarPorTenant($selectedTenantId);
+
+    /*
+     * Filtrar los roles que el usuario actual puede asignar.
+     * La autorización se comprueba en el modelo y en el servidor.
+     */
+
+    $actorId = (int) (
+        $usuarioActual['user_id']
+        ?? $usuarioActual['id']
+        ?? 0
+    );
+
+    $roles = array_values(array_filter(
+        $roles,
+        function ($role) use (
+            $roleModel,
+            $actorId,
+            $selectedTenantId
+        ) {
+            return $roleModel->puedeAsignarRol(
+                $actorId,
+                (int) $role['id'],
+                (int) $selectedTenantId
+            );
+        }
+    ));
+
 }
 
 
@@ -228,7 +255,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($selectedTenantId > 0) {
 
         $roles = $roleModel->listarPorTenant($selectedTenantId);
+
+        /*
+         * Filtrar los roles que el usuario actual puede asignar.
+         * La autorización se comprueba en el modelo y en el servidor.
+         */
+
+        $actorId = (int) (
+            $usuarioActual['user_id']
+            ?? $usuarioActual['id']
+            ?? 0
+        );
+
+        $roles = array_values(array_filter(
+            $roles,
+            function ($role) use (
+                $roleModel,
+                $actorId,
+                $selectedTenantId
+            ) {
+                return $roleModel->puedeAsignarRol(
+                    $actorId,
+                    (int) $role['id'],
+                    (int) $selectedTenantId
+                );
+            }
+        ));
     }
+    
 }
 
 

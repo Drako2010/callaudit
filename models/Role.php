@@ -266,6 +266,192 @@ class Role
 
 
     /**
+     * Determina si el usuario autenticado puede asignar
+     * un rol específico a un usuario de una empresa.
+     *
+     * Matriz oficial de CallAudit:
+     *
+     * SUPERADMIN:
+     *   Puede asignar roles de la empresa de destino.
+     *
+     * ADMIN:
+     *   Puede asignar ADMIN, SUPERVISOR, AUDITOR y AGENTE
+     *   dentro de su propia empresa.
+     *
+     * SUPERVISOR:
+     *   Puede asignar AUDITOR y AGENTE
+     *   dentro de su propia empresa.
+     *
+     * AUDITOR y AGENTE:
+     *   No tienen autoridad automática para asignar roles.
+     *
+     * Tener users.create no concede por sí solo autoridad
+     * para asignar roles.
+     *
+     * @param int $actorId Usuario que realiza la operación.
+     * @param int $roleId Rol que se desea asignar.
+     * @param int $tenantId Empresa del nuevo usuario.
+     *
+     * @return bool
+     */
+    public function puedeAsignarRol(
+        int $actorId,
+        int $roleId,
+        int $tenantId
+    ): bool {
+
+        if (
+            $this->db === null
+            || $actorId <= 0
+            || $roleId <= 0
+            || $tenantId <= 0
+        ) {
+            return false;
+        }
+
+        /*
+         * 1. Obtener el rol que se pretende asignar.
+         */
+        $sqlRolDestino = "SELECT
+                              id,
+                              tenant_id,
+                              slug,
+                              status
+                          FROM roles
+                          WHERE id = :role_id
+                          LIMIT 1";
+
+        $stmtDestino = $this->db->prepare($sqlRolDestino);
+
+        $stmtDestino->execute([
+            ':role_id' => $roleId
+        ]);
+
+        $rolDestino = $stmtDestino->fetch();
+
+        if (
+            $rolDestino === false
+            || $rolDestino['status'] !== 'ACTIVE'
+            || $rolDestino['tenant_id'] === null
+            || (int) $rolDestino['tenant_id'] !== $tenantId
+        ) {
+            return false;
+        }
+
+        /*
+         * 2. Consultar los roles activos del actor.
+         *
+         * La autoridad se obtiene de la base de datos,
+         * no de valores enviados por el formulario.
+         */
+        $sqlActor = "SELECT
+                         u.tenant_id AS actor_tenant_id,
+                         r.tenant_id AS role_tenant_id,
+                         r.slug AS role_slug
+                     FROM users u
+                     INNER JOIN user_roles ur
+                         ON ur.user_id = u.id
+                     INNER JOIN roles r
+                         ON r.id = ur.role_id
+                     WHERE u.id = :actor_id
+                       AND u.status = 'ACTIVE'
+                       AND r.status = 'ACTIVE'";
+
+        $stmtActor = $this->db->prepare($sqlActor);
+
+        $stmtActor->execute([
+            ':actor_id' => $actorId
+        ]);
+
+        $rolesActor = $stmtActor->fetchAll();
+
+        if (empty($rolesActor)) {
+            return false;
+        }
+
+        /*
+         * 3. Evaluar la autoridad de cada rol activo.
+         *
+         * Si el actor tiene varios roles, se acepta la
+         * asignación cuando al menos uno de ellos la autoriza.
+         */
+        foreach ($rolesActor as $rolActor) {
+
+            $tenantActor = $rolActor['actor_tenant_id'] !== null
+                ? (int) $rolActor['actor_tenant_id']
+                : null;
+
+            $tenantRolActor = $rolActor['role_tenant_id'] !== null
+                ? (int) $rolActor['role_tenant_id']
+                : null;
+
+            $slugActor = strtoupper($rolActor['role_slug']);
+            $slugDestino = strtoupper($rolDestino['slug']);
+
+            /*
+             * SUPERADMIN:
+             * debe ser un usuario global con rol SUPERADMIN global.
+             * Puede asignar roles de la empresa seleccionada.
+             */
+            if (
+                $tenantActor === null
+                && $tenantRolActor === null
+                && $slugActor === 'SUPERADMIN'
+            ) {
+                return true;
+            }
+
+            /*
+             * Los demás roles solo pueden operar dentro
+             * de su propia empresa.
+             */
+            if (
+                $tenantActor === null
+                || $tenantActor !== $tenantId
+                || $tenantRolActor !== $tenantId
+            ) {
+                continue;
+            }
+
+            /*
+             * ADMIN puede asignar cualquiera de los cuatro
+             * roles de empresa definidos en la matriz.
+             */
+            if ($slugActor === 'ADMIN') {
+
+                if (in_array(
+                    $slugDestino,
+                    ['ADMIN', 'SUPERVISOR', 'AUDITOR', 'AGENTE'],
+                    true
+                )) {
+                    return true;
+                }
+            }
+
+            /*
+             * SUPERVISOR solo puede asignar AUDITOR y AGENTE.
+             */
+            if ($slugActor === 'SUPERVISOR') {
+
+                if (in_array(
+                    $slugDestino,
+                    ['AUDITOR', 'AGENTE'],
+                    true
+                )) {
+                    return true;
+                }
+            }
+        }
+
+        /*
+         * Si ningún rol activo autoriza la asignación,
+         * se deniega por defecto.
+         */
+        return false;
+    }
+
+
+    /**
      * Determina si un rol puede asignarse a un usuario.
      *
      * Esta validación es MUY importante para el aislamiento
