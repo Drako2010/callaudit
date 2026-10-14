@@ -92,20 +92,22 @@ class CsrfService
         );
     }
 
+    
     /*
     |--------------------------------------------------------------------------
     | Validar solicitud POST
     |--------------------------------------------------------------------------
-    | Este método simplifica la protección de formularios.
-    |
-    | Si el token falta o es incorrecto, la operación se detiene.
+    | Comprobamos que el token recibido sea una cadena antes de validarlo.
+    | Si falta, tiene un tipo incorrecto o no coincide con la sesión,
+    | rechazamos la solicitud con HTTP 403.
     */
 
     public function validarRequest(): void
     {
         $token = $_POST['csrf_token'] ?? null;
 
-        if (!$this->validar($token)) {
+        // Rechazar valores manipulados que no sean cadenas.
+        if (!is_string($token) || !$this->validar($token)) {
 
             http_response_code(403);
 
@@ -113,4 +115,5 @@ class CsrfService
             exit;
         }
     }
+
 }

@@ -183,8 +183,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     | No confiamos en los datos del formulario para determinar el tenant.
     | El tenant continúa siendo obtenido exclusivamente de la sesión.
     */
-
+    
+    // Aceptar únicamente una operación enviada como cadena.
     $operation = isset($_POST['operation'])
+        && is_string($_POST['operation'])
         ? trim($_POST['operation'])
         : '';
 
@@ -200,9 +202,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         /*
          * Obtener el ID del usuario/agente enviado por el formulario.
          */
-        $userId = isset($_POST['user_id'])
-            ? (int) $_POST['user_id']
+        
+        // Aceptar únicamente un identificador numérico positivo.
+        $userIdRaw = $_POST['user_id'] ?? null;
+
+        $userId = is_string($userIdRaw)
+            && ctype_digit($userIdRaw)
+            ? (int) $userIdRaw
             : 0;
+
 
 
         /*
@@ -266,17 +274,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
          *
          * Es el ID de la fila existente en campaign_users.
          */
-        $campaignUserId = isset($_POST['campaign_user_id'])
-            ? (int) $_POST['campaign_user_id']
+        
+        // Validar el formato del ID de la asignación antes de convertirlo.
+        $campaignUserIdRaw = $_POST['campaign_user_id'] ?? null;
+
+        $campaignUserId = is_string($campaignUserIdRaw)
+            && ctype_digit($campaignUserIdRaw)
+            ? (int) $campaignUserIdRaw
             : 0;
 
 
         /*
          * Obtener el nuevo estado.
          */
-        $status = isset($_POST['status'])
-            ? strtoupper(trim($_POST['status']))
+        
+        // Aceptar el estado únicamente cuando se recibe como cadena.
+        $statusRaw = $_POST['status'] ?? null;
+
+        $status = is_string($statusRaw)
+            ? strtoupper(trim($statusRaw))
             : '';
+
 
 
         /*
