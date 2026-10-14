@@ -72,7 +72,34 @@ $tenantId = (int) $usuario['tenant_id'];
 | La campaña se identifica mediante el parámetro id de la URL.
 */
 
-$id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+
+/*
+|--------------------------------------------------------------------------
+| Obtener y validar el ID de campaña
+|--------------------------------------------------------------------------
+| El identificador debe llegar como una cadena numérica positiva.
+| Rechazamos arreglos y valores con formatos inesperados antes
+| de convertirlos a entero.
+*/
+
+$idRaw = $_GET['id'] ?? null;
+
+$id = 0;
+
+if (is_string($idRaw) && ctype_digit($idRaw)) {
+
+    // Validar que el identificador sea un entero positivo válido.
+    $idValidado = filter_var(
+        $idRaw,
+        FILTER_VALIDATE_INT,
+        ['options' => ['min_range' => 1]]
+    );
+
+    if ($idValidado !== false) {
+        $id = $idValidado;
+    }
+}
+
 
 
 /*
