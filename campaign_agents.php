@@ -7,7 +7,7 @@
 | Cargamos los middleware y controladores necesarios para consultar
 | y administrar los agentes de una campaña.
 */
-
+require_once __DIR__ . '/services/CampaignTenantContext.php';
 require_once __DIR__ . '/services/CsrfService.php'; // Token
 require_once __DIR__ . '/services/AuthMiddleware.php';
 require_once __DIR__ . '/controllers/CampaignController.php';
@@ -48,21 +48,8 @@ if ($usuario === null) {
 | Nunca utilizamos tenant_id enviado por GET o POST.
 */
 
-if ($usuario['tenant_id'] === null) {
-
-    /*
-     * Los usuarios globales/SUPERADMIN no tienen tenant propio.
-     *
-     * Por ahora esta pantalla requiere que exista un ámbito
-     * de empresa explícito.
-     */
-    http_response_code(403);
-
-    echo 'Debe seleccionar una empresa para administrar los agentes.';
-    exit;
-}
-
-$tenantId = (int) $usuario['tenant_id'];
+$tenantContext = new CampaignTenantContext();
+$tenantId = $tenantContext->resolver($usuario);
 
 
 /*

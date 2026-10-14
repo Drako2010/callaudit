@@ -8,6 +8,7 @@
 | encargado de obtener las campañas.
 */
 
+require_once __DIR__ . '/services/CampaignTenantContext.php';
 require_once __DIR__ . '/services/AuthMiddleware.php';
 require_once __DIR__ . '/controllers/CampaignController.php';
 
@@ -61,19 +62,9 @@ if ($usuario === null) {
 | en el siguiente paso del módulo.
 */
 
-if ($usuario['tenant_id'] === null) {
 
-    /*
-     * Por ahora dejamos preparado el control explícito.
-     * No utilizamos 0 como tenant ficticio.
-     */
-    http_response_code(403);
-
-    echo 'Debe seleccionar una empresa para administrar campañas.';
-    exit;
-}
-
-$tenantId = (int) $usuario['tenant_id'];
+$tenantContext = new CampaignTenantContext();
+$tenantId = $tenantContext->resolver($usuario);
 
 
 /*

@@ -7,7 +7,7 @@
 | Cargamos el middleware de autenticación/autorización y el controlador
 | encargado de consultar y actualizar campañas.
 */
-
+require_once __DIR__ . '/services/CampaignTenantContext.php';
 require_once __DIR__ . '/services/AuthMiddleware.php';
 require_once __DIR__ . '/controllers/CampaignController.php';
 require_once __DIR__ . '/services/CsrfService.php'; // Token
@@ -58,22 +58,8 @@ if ($usuario === null) {
 | pertenecientes a otra empresa.
 */
 
-if ($usuario['tenant_id'] === null) {
-
-    /*
-     * Un usuario global/SUPERADMIN no tiene tenant propio.
-     *
-     * Por ahora esta pantalla requiere que exista un ámbito de empresa
-     * explícito. El manejo completo del ámbito global se implementará
-     * posteriormente.
-     */
-    http_response_code(403);
-
-    echo 'Debe seleccionar una empresa para editar campañas.';
-    exit;
-}
-
-$tenantId = (int) $usuario['tenant_id'];
+$tenantContext = new CampaignTenantContext();
+$tenantId = $tenantContext->resolver($usuario);
 
 
 /*

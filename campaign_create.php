@@ -7,7 +7,7 @@
 | Cargamos el middleware de autenticación/autorización y el controlador
 | encargado de crear campañas.
 */
-
+require_once __DIR__ . '/services/CampaignTenantContext.php';
 require_once __DIR__ . '/services/AuthMiddleware.php';
 require_once __DIR__ . '/controllers/CampaignController.php';
 require_once __DIR__ . '/services/CsrfService.php';  // TOKEN
@@ -58,23 +58,8 @@ if ($usuario === null) {
 | manualmente el ID de otra empresa.
 */
 
-if ($usuario['tenant_id'] === null) {
-
-    /*
-     * Un usuario global/SUPERADMIN no tiene una empresa propia.
-     *
-     * Por ahora no permitimos crear campañas desde esta pantalla sin
-     * seleccionar explícitamente una empresa.
-     *
-     * El manejo completo del ámbito global lo implementaremos después.
-     */
-    http_response_code(403);
-
-    echo 'Debe seleccionar una empresa para crear campañas.';
-    exit;
-}
-
-$tenantId = (int) $usuario['tenant_id'];
+$tenantContext = new CampaignTenantContext();
+$tenantId = $tenantContext->resolver($usuario);
 
 
 /*

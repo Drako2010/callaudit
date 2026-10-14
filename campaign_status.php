@@ -7,7 +7,7 @@
 | Cargamos el middleware de autenticación/autorización y el controlador
 | encargado de modificar el estado de la campaña.
 */
-
+require_once __DIR__ . '/services/CampaignTenantContext.php';
 require_once __DIR__ . '/services/CsrfService.php'; // Token
 require_once __DIR__ . '/services/AuthMiddleware.php';
 require_once __DIR__ . '/controllers/CampaignController.php';
@@ -52,20 +52,8 @@ if ($usuario === null) {
 | Nunca aceptamos tenant_id enviado por GET o POST.
 */
 
-if ($usuario['tenant_id'] === null) {
-
-    /*
-     * Un usuario global/SUPERADMIN no tiene un tenant propio.
-     *
-     * Por ahora esta pantalla requiere un tenant explícito.
-     */
-    http_response_code(403);
-
-    echo 'Debe seleccionar una empresa para modificar campañas.';
-    exit;
-}
-
-$tenantId = (int) $usuario['tenant_id'];
+$tenantContext = new CampaignTenantContext();
+$tenantId = $tenantContext->resolver($usuario);
 
 
 /*
