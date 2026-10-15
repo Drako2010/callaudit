@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 14-10-2026 a las 23:37:48
+-- Tiempo de generación: 15-10-2026 a las 20:24:15
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -46,8 +46,8 @@ CREATE TABLE `campaigns` (
 --
 
 INSERT INTO `campaigns` (`id`, `tenant_id`, `name`, `slug`, `description`, `status`, `start_date`, `end_date`, `created_by`, `created_at`, `updated_at`) VALUES
-(3, 6, 'BARRIDO VENTA', 'BARRIDO-VENTA', 'BARRIDO PRUEBAS.', 'ACTIVE', '2026-09-25', '2026-12-30', 12, '2026-09-24 18:57:30', '2026-10-14 21:24:07'),
-(4, 6, 'VENTAS 2', 'VENTAS 2 - PANDORA', 'PRUEBA Y MAS', 'ACTIVE', '2026-10-01', '2026-10-31', 8, '2026-10-14 20:28:44', '2026-10-14 21:02:59');
+(3, 6, 'BARRIDO VENTA', 'BARRIDO-VENTA', 'BARRIDO PRUEBAS.', 'ACTIVE', '2026-09-25', '2026-12-30', 12, '2026-09-24 18:57:30', '2026-10-15 18:16:13'),
+(4, 6, 'VENTAS 2', 'VENTAS 2 - PANDORA', 'PRUEBA Y MAS', 'ACTIVE', '2026-10-01', '2026-10-31', 8, '2026-10-14 20:28:44', '2026-10-15 18:01:18');
 
 -- --------------------------------------------------------
 
@@ -69,7 +69,8 @@ CREATE TABLE `campaign_users` (
 --
 
 INSERT INTO `campaign_users` (`id`, `tenant_id`, `campaign_id`, `user_id`, `status`, `assigned_at`) VALUES
-(1, 6, 3, 15, 'ACTIVE', '2026-09-24 14:02:25');
+(1, 6, 3, 15, 'ACTIVE', '2026-09-24 14:02:25'),
+(2, 6, 3, 20, 'ACTIVE', '2026-10-15 13:16:32');
 
 -- --------------------------------------------------------
 
@@ -629,9 +630,12 @@ INSERT INTO `users` (`id`, `tenant_id`, `name`, `email`, `password`, `status`, `
 (12, 6, 'Admin 2', 'prueba.admin2@callaudit.local', '$2y$10$f.h3ofcJByHVBG/tblZyuOadQeJwquMe3JCP2vCzsL3dHB9y4ETHm', 'ACTIVE', '2026-09-24 17:38:01', '2026-09-24 17:38:01'),
 (13, 6, 'Supervisor 2', 'prueba.supervisor2@callaudit.local', '$2y$10$YImtiikAe/k.vG/dY1PV4eyzAlUisY64lt2WWn.F4Wmrb66NmSuQ.', 'ACTIVE', '2026-09-24 17:39:26', '2026-09-24 17:39:26'),
 (14, 6, 'Auditor 2', 'prueba.auditor2@callaudit.local', '$2y$10$J/aDMcgVuOdNUvJbtwa6cuX4Q9wamsJC8G5gJRVKyAfYibWzqyTBy', 'ACTIVE', '2026-09-24 17:40:07', '2026-09-24 17:40:07'),
-(15, 6, 'Agente 2', 'prueba.agente2@callaudit.local', '$2y$10$D1waHIBbPBShhbrghDNkMeUGkJ9QUDeiepdqi4BWDGOz6fzSElg5W', 'ACTIVE', '2026-09-24 17:41:17', '2026-09-24 17:41:17'),
+(15, 6, 'Agente 2', 'prueba.agente2@callaudit.local', '$2y$10$FN3/8GWB3lnsYzvbUaZj7eNrry/iD1fv9IHWOplRHfP3gq1uWJL0e', 'ACTIVE', '2026-09-24 17:41:17', '2026-10-15 17:14:32'),
 (16, 1, 'Usuario Prueba Multiempresa', 'prueba.multempresa@callaudit.local', '$2y$10$AIv.9SSSZPVwTUM1AR.Zz.ixSmzQN5F/W8uxGwvp.XDCaGURffK5G', 'ACTIVE', '2026-10-13 16:09:15', '2026-10-14 20:00:33'),
-(17, 2, 'Usuario Prueba Multiempresa', 'prueba.multempresa@callaudit.local', '$2y$10$AIv.9SSSZPVwTUM1AR.Zz.ixSmzQN5F/W8uxGwvp.XDCaGURffK5G', 'ACTIVE', '2026-10-13 16:09:15', '2026-10-14 20:00:33');
+(17, 2, 'Usuario Prueba Multiempresa', 'prueba.multempresa@callaudit.local', '$2y$10$AIv.9SSSZPVwTUM1AR.Zz.ixSmzQN5F/W8uxGwvp.XDCaGURffK5G', 'ACTIVE', '2026-10-13 16:09:15', '2026-10-14 20:00:33'),
+(20, 6, 'Agente Prueba 3', 'prueba.agente3@callaudit.local', '$2y$12$Wo.INFbmWCGXAX2LNzQnoOCz6c3gBENXfzopp07nRQkmo5/lyeZZ2', 'ACTIVE', '2026-10-15 18:14:30', '2026-10-15 18:14:30'),
+(21, 6, 'Agente Prueba 4', 'prueba.agente4@callaudit.local', '$2y$12$Wo.INFbmWCGXAX2LNzQnoOCz6c3gBENXfzopp07nRQkmo5/lyeZZ2', 'ACTIVE', '2026-10-15 18:14:30', '2026-10-15 18:14:30'),
+(22, 6, 'Agente Prueba 5', 'prueba.agente5@callaudit.local', '$2y$12$Wo.INFbmWCGXAX2LNzQnoOCz6c3gBENXfzopp07nRQkmo5/lyeZZ2', 'ACTIVE', '2026-10-15 18:14:30', '2026-10-15 18:14:30');
 
 -- --------------------------------------------------------
 
@@ -680,7 +684,10 @@ INSERT INTO `user_roles` (`user_id`, `role_id`, `created_at`) VALUES
 (14, 25, '2026-09-24 17:40:07'),
 (15, 32, '2026-09-24 17:41:17'),
 (16, 17, '2026-10-13 16:09:15'),
-(17, 13, '2026-10-13 16:09:15');
+(17, 13, '2026-10-13 16:09:15'),
+(20, 32, '2026-10-15 18:14:30'),
+(21, 32, '2026-10-15 18:14:30'),
+(22, 32, '2026-10-15 18:14:30');
 
 --
 -- Índices para tablas volcadas
@@ -767,7 +774,7 @@ ALTER TABLE `campaigns`
 -- AUTO_INCREMENT de la tabla `campaign_users`
 --
 ALTER TABLE `campaign_users`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT de la tabla `permissions`
@@ -791,7 +798,7 @@ ALTER TABLE `tenants`
 -- AUTO_INCREMENT de la tabla `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=20;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=23;
 
 --
 -- Restricciones para tablas volcadas

@@ -1,34 +1,37 @@
 
 <?php
+
 require_once __DIR__ . '/config/database.php';
 
-$email = 'auditor.protecta@callaudit.local';
-$nuevaClave = '123456789';
+$db = new Database();
+$pdo = $db->connect();
 
-$db = (new Database())->connect();
-
-if (!$db) {
+if (!$pdo) {
     exit('No se pudo conectar a la base de datos.');
 }
 
-$stmt = $db->prepare(
-    'SELECT id FROM users WHERE email = :email AND tenant_id = 6'
-);
-$stmt->execute(['email' => $email]);
-$usuario = $stmt->fetch();
+$password = '123456789';
 
-if (!$usuario) {
-    exit('No se encontró el usuario Auditor Protecta.');
-}
+$hash = password_hash($password, PASSWORD_DEFAULT);
 
-$hash = password_hash($nuevaClave, PASSWORD_DEFAULT);
+$sql = "UPDATE users
+        SET password = :password
+        WHERE id = 15
+        AND email = 'prueba.agente2@callaudit.local'
+        AND tenant_id = 6";
 
-$update = $db->prepare(
-    'UPDATE users SET password = :password WHERE id = :id'
-);
-$update->execute([
-    'password' => $hash,
-    'id' => $usuario['id']
+$stmt = $pdo->prepare($sql);
+$stmt->execute([
+    ':password' => $hash
 ]);
 
-echo 'Contraseña restablecida correctamente para Auditor Protecta.';
+if ($stmt->rowCount() > 0) {
+
+    echo 'Contraseña restablecida correctamente.<br>';
+    echo 'Usuario: prueba.agente2@callaudit.local<br>';
+    echo 'Nueva contraseña: AgenteTemp2026!';
+
+} else {
+
+    echo 'No se actualizó ningún registro. Verifica que el usuario exista.';
+}
