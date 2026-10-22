@@ -28,9 +28,16 @@ class AuditFormQuestion
     /** Conexión PDO compartida por las operaciones del modelo. */
     private ?PDO $db;
 
+    /**
+     * Constructor del modelo.
+     *
+     * Crea una instancia de Database y obtiene la conexión PDO,
+     * siguiendo el patrón utilizado por los modelos existentes de CallAudit.
+     */
     public function __construct()
     {
-        $this->db = Database::connect();
+        $database = new Database();
+        $this->db = $database->connect();
     }
 
     /**
