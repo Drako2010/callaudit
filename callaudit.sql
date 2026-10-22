@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 21-10-2026 a las 20:35:24
+-- Tiempo de generación: 22-10-2026 a las 21:07:28
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -113,6 +113,13 @@ CREATE TABLE `audit_forms` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+--
+-- Volcado de datos para la tabla `audit_forms`
+--
+
+INSERT INTO `audit_forms` (`id`, `tenant_id`, `name`, `description`, `status`, `created_by`, `created_at`, `updated_at`) VALUES
+(1, 1, 'VENTAS CALIDDA PERU', 'EVALUAREMOS LAS VENTAS DIARIAS DE CALIDDA PERU', 'ACTIVE', 7, '2026-10-21 18:53:26', '2026-10-21 18:53:26');
+
 -- --------------------------------------------------------
 
 --
@@ -137,6 +144,32 @@ CREATE TABLE `audit_form_questions` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ;
 
+--
+-- Volcado de datos para la tabla `audit_form_questions`
+--
+
+INSERT INTO `audit_form_questions` (`id`, `tenant_id`, `form_version_id`, `position`, `question_text`, `help_text`, `answer_type`, `options_json`, `weight`, `is_critical`, `required_answer`, `allow_na`, `na_score`, `active`, `created_at`) VALUES
+(1, 1, 1, 1, '¿El agente saludó al cliente y se identificó correctamente?', NULL, 'YES_NO', NULL, 10.00, 0, 1, 0, NULL, 1, '2026-10-21 19:02:39'),
+(2, 1, 1, 2, '¿El agente verificó la identidad del cliente siguiendo el procedimiento establecido?', NULL, 'YES_NO', NULL, 20.00, 1, 1, 0, NULL, 1, '2026-10-21 19:36:15'),
+(3, 1, 1, 3, '¿El agente escuchó atentamente y comprendió la necesidad del cliente?', 'Escala sugerida: 1 = Muy deficiente, 2 = Deficiente, 3 = Regular, 4 = Bueno, 5 = Excelente.', 'SCALE', NULL, 1.00, 0, 1, 0, NULL, 1, '2026-10-21 19:37:39'),
+(4, 1, 1, 4, '¿La información proporcionada al cliente fue correcta?', NULL, 'YES_NO', NULL, 15.00, 1, 1, 0, NULL, 1, '2026-10-21 19:38:33'),
+(5, 1, 1, 5, '¿El agente mantuvo un tono de voz respetuoso y profesional?', 'Escala sugerida: 1 a 5.', 'SCALE', NULL, 10.00, 0, 1, 0, NULL, 1, '2026-10-21 19:39:43'),
+(6, 1, 1, 6, '¿El agente resolvió la consulta o proporcionó una solución adecuada?', NULL, 'YES_NO', NULL, 15.00, 0, 1, 1, NULL, 1, '2026-10-21 19:40:50'),
+(7, 1, 1, 7, '¿El agente cumplió con el protocolo de cierre de la llamada?', NULL, 'YES_NO', NULL, 5.00, 0, 1, 0, NULL, 1, '2026-10-21 19:46:23'),
+(8, 1, 1, 8, '¿Qué errores o incumplimientos se detectaron durante la llamada?', NULL, 'TEXT', NULL, 0.01, 0, 0, 1, NULL, 1, '2026-10-21 19:47:31'),
+(9, 1, 1, 9, '¿Cuál fue el resultado final de la llamada?', NULL, 'SINGLE_CHOICE', '[\"Venta concretada\",\"consulta resuelta\",\"seguimiento pendiente\",\"cliente no interesado\",\"llamada no efectiva\"]', 5.00, 0, 1, 0, NULL, 1, '2026-10-21 19:50:01'),
+(10, 1, 1, 10, 'Observaciones y recomendaciones del auditor', NULL, 'TEXT', NULL, 0.01, 0, 1, 1, NULL, 1, '2026-10-21 19:58:11'),
+(11, 1, 2, 1, '¿El agente saludó al cliente y se identificó correctamente?', NULL, 'YES_NO', NULL, 10.00, 0, 1, 0, NULL, 1, '2026-10-21 20:05:04'),
+(12, 1, 2, 2, '¿El agente verificó la identidad del cliente siguiendo el procedimiento establecido?', NULL, 'YES_NO', NULL, 20.00, 1, 1, 0, NULL, 1, '2026-10-21 20:05:04'),
+(13, 1, 2, 3, '¿El agente escuchó atentamente y comprendió la necesidad del cliente?', 'Escala sugerida: 1 = Muy deficiente, 2 = Deficiente, 3 = Regular, 4 = Bueno, 5 = Excelente.', 'SCALE', NULL, 1.00, 0, 1, 0, NULL, 1, '2026-10-21 20:05:04'),
+(14, 1, 2, 4, '¿La información proporcionada al cliente fue correcta?', NULL, 'YES_NO', NULL, 15.00, 1, 1, 0, NULL, 1, '2026-10-21 20:05:04'),
+(15, 1, 2, 5, '¿El agente mantuvo un tono de voz respetuoso y profesional?', 'Escala sugerida: 1 a 5.', 'SCALE', NULL, 10.00, 0, 1, 0, NULL, 1, '2026-10-21 20:05:04'),
+(16, 1, 2, 6, '¿El agente resolvió la consulta o proporcionó una solución adecuada?', NULL, 'YES_NO', NULL, 15.00, 0, 1, 1, NULL, 1, '2026-10-21 20:05:04'),
+(17, 1, 2, 7, '¿El agente cumplió con el protocolo de cierre de la llamada?', NULL, 'YES_NO', NULL, 5.00, 0, 1, 0, NULL, 1, '2026-10-21 20:05:04'),
+(18, 1, 2, 8, '¿Qué errores o incumplimientos se detectaron durante la llamada?', NULL, 'TEXT', NULL, 0.01, 0, 0, 1, NULL, 1, '2026-10-21 20:05:04'),
+(19, 1, 2, 9, '¿Cuál fue el resultado final de la llamada?', NULL, 'SINGLE_CHOICE', '[\"Venta concretada\",\"consulta resuelta\",\"seguimiento pendiente\",\"cliente no interesado\",\"llamada no efectiva\"]', 5.00, 0, 1, 0, NULL, 1, '2026-10-21 20:05:04'),
+(20, 1, 2, 10, 'Observaciones y recomendaciones del auditor', NULL, 'TEXT', NULL, 0.01, 0, 1, 1, NULL, 1, '2026-10-21 20:05:04');
+
 -- --------------------------------------------------------
 
 --
@@ -156,6 +189,14 @@ CREATE TABLE `audit_form_versions` (
   `created_by` bigint(20) UNSIGNED DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ;
+
+--
+-- Volcado de datos para la tabla `audit_form_versions`
+--
+
+INSERT INTO `audit_form_versions` (`id`, `tenant_id`, `form_id`, `version_number`, `status`, `passing_score`, `na_policy`, `published_by`, `published_at`, `created_by`, `created_at`) VALUES
+(1, 1, 1, 1, 'DRAFT', NULL, 'EXCLUDE', NULL, NULL, 7, '2026-10-21 18:53:26'),
+(2, 1, 1, 2, 'PUBLISHED', 80.00, 'ZERO', 7, '2026-10-21 15:05:56', 7, '2026-10-21 20:05:04');
 
 -- --------------------------------------------------------
 
@@ -650,6 +691,13 @@ CREATE TABLE `telephony_sources` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+--
+-- Volcado de datos para la tabla `telephony_sources`
+--
+
+INSERT INTO `telephony_sources` (`id`, `tenant_id`, `name`, `platform`, `connection_mode`, `host`, `port`, `database_name`, `configuration_json`, `encrypted_secret`, `secret_key_version`, `status`, `last_test_at`, `last_error_code`, `last_error_at`, `created_by`, `created_at`, `updated_at`) VALUES
+(1, 1, 'PBX Prueba CallAudit', 'ASTERISK', 'MANUAL', '192.168.5.6', 5038, 'asterisk', NULL, NULL, NULL, 'PENDING_TEST', NULL, NULL, NULL, 7, '2026-10-22 19:01:12', '2026-10-22 19:01:46');
+
 -- --------------------------------------------------------
 
 --
@@ -998,7 +1046,7 @@ ALTER TABLE `audit_calls`
 -- AUTO_INCREMENT de la tabla `audit_forms`
 --
 ALTER TABLE `audit_forms`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT de la tabla `audit_form_questions`
@@ -1076,7 +1124,7 @@ ALTER TABLE `roles`
 -- AUTO_INCREMENT de la tabla `telephony_sources`
 --
 ALTER TABLE `telephony_sources`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT de la tabla `tenants`
