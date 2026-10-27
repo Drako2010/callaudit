@@ -36,10 +36,8 @@ class AuditSelectionController
             }
         } else {
             $selected = $_SESSION['campaign_tenant_id'] ?? null;
-
             if (
-                (!is_int($selected) &&
-                    !(is_string($selected) && ctype_digit($selected))) ||
+                (!is_int($selected) && !(is_string($selected) && ctype_digit($selected))) ||
                 (int) $selected !== $tenantId
             ) {
                 http_response_code(403);
@@ -53,15 +51,19 @@ class AuditSelectionController
     public function campanias(int $tenantId): array
     {
         $this->validarAcceso($tenantId, 'audits.view');
-
         return $this->model->campanias($tenantId);
     }
 
     public function listar(int $tenantId, int $campaignId): array
     {
         $this->validarAcceso($tenantId, 'audits.view');
-
         return $this->model->listar($tenantId, $campaignId);
+    }
+
+    public function llamadasElegibles(int $tenantId, int $policyId): array
+    {
+        $this->validarAcceso($tenantId, 'audits.view');
+        return $this->model->llamadasElegibles($tenantId, $policyId);
     }
 
     public function guardar(
@@ -70,11 +72,7 @@ class AuditSelectionController
         array $data,
         ?int $id = null
     ): array {
-        $user = $this->validarAcceso(
-            $tenantId,
-            $id ? 'audits.edit' : 'audits.create'
-        );
-
+        $user = $this->validarAcceso($tenantId, $id ? 'audits.edit' : 'audits.create');
         return $this->model->guardar(
             $tenantId,
             $campaignId,
@@ -87,15 +85,16 @@ class AuditSelectionController
     public function generar(
         int $tenantId,
         int $policyId,
-        string $requestKey
+        string $requestKey,
+        ?int $selectedCallId = null
     ): array {
         $user = $this->validarAcceso($tenantId, 'audits.create');
-
         return $this->model->encolarGeneracion(
             $tenantId,
             $policyId,
             (int) $user['id'],
-            $requestKey
+            $requestKey,
+            $selectedCallId
         );
     }
 }

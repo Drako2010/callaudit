@@ -7,7 +7,6 @@ require_once __DIR__ . '/controllers/AuditSelectionController.php';
 
 $auth = new AuthMiddleware();
 $auth->requierePermiso('audits.view');
-
 $user = $auth->usuario();
 
 if (!$user) {
@@ -17,18 +16,16 @@ if (!$user) {
 
 $context = new CampaignTenantContext();
 $tenantId = (int) $context->resolver($user);
-
 $csrf = new CsrfService();
 $controller = new AuditSelectionController();
 
 $campaigns = $controller->campanias($tenantId);
-$campaignId = filter_input(INPUT_GET, 'campaign_id', FILTER_VALIDATE_INT)
-    ?: (int) ($_POST['campaign_id'] ?? 0);
+$campaignId = filter_input(INPUT_GET, 'campaign_id', FILTER_VALIDATE_INT);
+if (!$campaignId) {
+    $campaignId = (int) ($_POST['campaign_id'] ?? 0);
+}
 
-$policies = $campaignId > 0
-    ? $controller->listar($tenantId, $campaignId)
-    : [];
-
+$policies = $campaignId > 0 ? $controller->listar($tenantId, $campaignId) : [];
 $message = '';
 $messageType = 'info';
 
@@ -42,31 +39,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'generate') {
         $policyId = filter_var($_POST['policy_id'] ?? null, FILTER_VALIDATE_INT);
+        $selectedCallId = null;
+        $result = null;
 
-        if (!$policyId || $policyId <= 0) {
-            $result = [
-                'success' => false,
-                'message' => 'Política inválida.'
-            ];
+        if ($policyId === false || $policyId <= 0) {
+            $result = ['success' => false, 'message' => 'Política inválida.'];
         } else {
-            $requestKey = strtolower(trim(
-                (string) ($_POST['request_key'] ?? '')
-            ));
+            $selectedRaw = $_POST['selected_call_id'] ?? '';
+            if ($selectedRaw !== '') {
+                $validatedCallId = filter_var($selectedRaw, FILTER_VALIDATE_INT);
+                if ($validatedCallId === false || $validatedCallId <= 0) {
+                    $result = ['success' => false, 'message' => 'La llamada seleccionada no es válida.'];
+                } else {
+                    $selectedCallId = (int) $validatedCallId;
+                }
+            }
 
-            $result = $controller->generar(
-                $tenantId,
-                $policyId,
-                $requestKey
-            );
+            if ($result === null) {
+                $requestKey = strtolower(trim((string) ($_POST['request_key'] ?? '')));
+                $result = $controller->generar(
+                    $tenantId,
+                    (int) $policyId,
+                    $requestKey,
+                    $selectedCallId
+                );
+            }
         }
     } else {
         $id = filter_var($_POST['id'] ?? null, FILTER_VALIDATE_INT);
-
         $result = $controller->guardar(
             $tenantId,
             $campaignId,
             $_POST,
-            $id && $id > 0 ? $id : null
+            $id && $id > 0 ? (int) $id : null
         );
     }
 
@@ -79,18 +84,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (!empty($result['success']) && $action === 'generate') {
-    $message = 'Solicitud encolada correctamente. ID del trabajo: ' .
-        (int) ($result['job_id'] ?? 0) .
-        '. La generación se ejecutará en segundo plano.';
-
-    $messageType = 'success';
-    $policies = $controller->listar($tenantId, $campaignId);
+        $message = 'Solicitud encolada correctamente. ID del trabajo: ' .
+            (int) ($result['job_id'] ?? 0) .
+            '. La generación se ejecutará en segundo plano.';
+        $messageType = 'success';
     }
+
+    $policies = $campaignId > 0 ? $controller->listar($tenantId, $campaignId) : [];
 }
 
 if (isset($_GET['saved'])) {
     $message = 'Política guardada correctamente.';
     $messageType = 'success';
+}
+
+$manualCandidates = [];
+foreach ($policies as $policy) {
+    if ($policy['method'] === 'MANUAL' && (int) $policy['enabled'] === 1) {
+        $manualCandidates[(int) $policy['id']] = $controller->llamadasElegibles(
+            $tenantId,
+            (int) $policy['id']
+        );
+    }
 }
 
 function auditSelectionH($value): string
@@ -112,9 +127,11 @@ main{max-width:1200px;margin:auto}
 .panel{background:white;border:1px solid #dce2ea;border-radius:10px;padding:20px;margin-bottom:20px}
 label{display:block;font-weight:600;margin:12px 0 5px}
 input,select{box-sizing:border-box;width:100%;max-width:520px;padding:10px;border:1px solid #b9c3d0;border-radius:6px}
+input[type=checkbox]{width:auto}
 button,.button{display:inline-block;padding:10px 15px;border:0;border-radius:6px;background:#174ea6;color:white;text-decoration:none;cursor:pointer}
+button:disabled{background:#98a2b3;cursor:not-allowed}
 table{width:100%;border-collapse:collapse}
-th,td{padding:10px;border-bottom:1px solid #e4e7ec;text-align:left}
+th,td{padding:10px;border-bottom:1px solid #e4e7ec;text-align:left;vertical-align:top}
 .notice{padding:12px;border-radius:6px;margin-bottom:16px;background:#eef2f7}
 .success{background:#e5f7e9}.error{background:#fde8e8}
 .row{display:flex;gap:20px;flex-wrap:wrap}
@@ -200,15 +217,13 @@ th,td{padding:10px;border-bottom:1px solid #e4e7ec;text-align:left}
             </div>
 
             <label>
-                <input type="checkbox" name="only_with_audio" value="1" checked style="width:auto">
+                <input type="checkbox" name="only_with_audio" value="1" checked>
                 Seleccionar solamente llamadas con audio disponible
             </label>
-
             <label>
-                <input type="checkbox" name="enabled" value="1" checked style="width:auto">
+                <input type="checkbox" name="enabled" value="1" checked>
                 Política activa
             </label>
-
             <p><button type="submit">Guardar política</button></p>
         </form>
     </section>
@@ -243,7 +258,36 @@ th,td{padding:10px;border-bottom:1px solid #e4e7ec;text-align:left}
                                     <input type="hidden" name="policy_id" value="<?= (int) $policy['id'] ?>">
                                     <input type="hidden" name="action" value="generate">
                                     <input type="hidden" name="request_key" value="<?= auditSelectionH(bin2hex(random_bytes(16))) ?>">
-                                    <button type="submit">Generar tareas</button>
+
+                                    <?php if ($policy['method'] === 'MANUAL'): ?>
+                                        <?php $candidates = $manualCandidates[(int) $policy['id']] ?? []; ?>
+                                        <label for="manual_call_<?= (int) $policy['id'] ?>">Llamada que se auditará</label>
+                                        <select id="manual_call_<?= (int) $policy['id'] ?>" name="selected_call_id" required>
+                                            <option value="">Seleccionar llamada</option>
+                                            <?php foreach ($candidates as $call): ?>
+                                                <option value="<?= (int) $call['id'] ?>">
+                                                    #<?= (int) $call['id'] ?>
+                                                    · <?= auditSelectionH($call['started_at'] ?? '') ?>
+                                                    · <?= (int) ($call['duration_seconds'] ?? 0) ?> s
+                                                    · <?= auditSelectionH($call['phone_masked'] ?? 'Sin número') ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <?php if (!$candidates): ?>
+                                            <p class="small">No hay llamadas elegibles para esta política.</p>
+                                        <?php endif; ?>
+                                    <?php endif; ?>
+
+                                    <p>
+                                        <button type="submit" <?= (
+                                            $policy['method'] === 'MANUAL' &&
+                                            empty($manualCandidates[(int) $policy['id']])
+                                        ) ? 'disabled' : '' ?>>
+                                            <?= $policy['method'] === 'MANUAL'
+                                                ? 'Encolar llamada seleccionada'
+                                                : 'Generar tareas' ?>
+                                        </button>
+                                    </p>
                                 </form>
                             <?php else: ?>
                                 —
@@ -256,7 +300,8 @@ th,td{padding:10px;border-bottom:1px solid #e4e7ec;text-align:left}
         </table>
         <p class="small">
             La generación de tareas no ejecuta una auditoría ni cobra por IA.
-            Las tareas repetidas se omiten mediante la clave única existente de la base de datos.
+            La clave única de la base de datos evita duplicados por llamada y etapa.
+            Para una política manual, se procesa exclusivamente la llamada elegida.
         </p>
     </section>
     <?php endif; ?>
