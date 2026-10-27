@@ -282,6 +282,36 @@ function audioHistorySize($bytes): string
                                 true
                             ) &&
                             !empty($event['audio_storage_key']);
+
+                        $extension = strtolower(
+                            pathinfo(
+                                (string)$event['audio_storage_key'],
+                                PATHINFO_EXTENSION
+                            )
+                        );
+
+                        /*
+                         * audit_audio_version_stream.php convierte GSM a WAV.
+                         * El MIME declarado al navegador debe ser el del audio
+                         * que entrega el endpoint, no el del archivo original.
+                         */
+                        $playerMime = (string)($event['audio_mime_type'] ?? '');
+
+                        if ($extension === 'gsm') {
+                            $playerMime = 'audio/wav';
+                        } elseif ($playerMime === '') {
+                            $mimeByExtension = [
+                                'wav'  => 'audio/wav',
+                                'mp3'  => 'audio/mpeg',
+                                'ogg'  => 'audio/ogg',
+                                'flac' => 'audio/flac',
+                                'm4a'  => 'audio/mp4',
+                                'aac'  => 'audio/aac'
+                            ];
+
+                            $playerMime = $mimeByExtension[$extension]
+                                ?? 'application/octet-stream';
+                        }
                         ?>
                         <tr>
                             <td><?= audioHistoryH($event['created_at']) ?></td>
@@ -314,7 +344,7 @@ function audioHistorySize($bytes): string
                                     <audio controls preload="none">
                                         <source
                                             src="audit_audio_version_stream.php?event_id=<?= (int)$event['id'] ?>"
-                                            type="<?= audioHistoryH($event['audio_mime_type'] ?: 'application/octet-stream') ?>"
+                                            type="<?= audioHistoryH($playerMime) ?>"
                                         >
                                         Tu navegador no admite la reproducción de audio.
                                     </audio>
