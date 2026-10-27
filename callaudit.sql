@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 27-10-2026 a las 18:06:46
+-- Tiempo de generación: 27-10-2026 a las 18:48:42
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -69,6 +69,36 @@ CREATE TABLE `audit_activity_log` (
 -- --------------------------------------------------------
 
 --
+-- Estructura de tabla para la tabla `audit_audio_events`
+--
+
+CREATE TABLE `audit_audio_events` (
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `tenant_id` bigint(20) UNSIGNED NOT NULL,
+  `call_id` bigint(20) UNSIGNED NOT NULL,
+  `actor_user_id` bigint(20) UNSIGNED DEFAULT NULL,
+  `action` enum('UPLOAD','REPLACE') NOT NULL,
+  `outcome` enum('SUCCESS','REJECTED','ERROR') NOT NULL,
+  `audio_storage_key` varchar(1000) DEFAULT NULL,
+  `audio_sha256` char(64) DEFAULT NULL,
+  `audio_mime_type` varchar(100) DEFAULT NULL,
+  `audio_size_bytes` bigint(20) UNSIGNED DEFAULT NULL,
+  `message` varchar(1000) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Volcado de datos para la tabla `audit_audio_events`
+--
+
+INSERT INTO `audit_audio_events` (`id`, `tenant_id`, `call_id`, `actor_user_id`, `action`, `outcome`, `audio_storage_key`, `audio_sha256`, `audio_mime_type`, `audio_size_bytes`, `message`, `created_at`) VALUES
+(1, 6, 2, 8, 'UPLOAD', 'REJECTED', NULL, NULL, NULL, 446919, 'Formato no admitido. Usa WAV, MP3, OGG, FLAC, M4A o AAC.', '2026-10-27 17:34:28'),
+(2, 6, 2, 8, 'UPLOAD', 'SUCCESS', 'tenant_6/call_2/d4aa5f5c59bb8e8cb41b6916e190dbd8.gsm', 'c6fd451f2bc67c38750b82cbee2d88b0835df7a067bd85179df12133ae8fd511', 'audio/gsm', 446919, 'Audio almacenado y validado.', '2026-10-27 17:38:58'),
+(3, 6, 2, 8, 'REPLACE', 'SUCCESS', 'tenant_6/call_2/c811861dbb42e64229551674a9f80bd4.gsm', 'c6fd451f2bc67c38750b82cbee2d88b0835df7a067bd85179df12133ae8fd511', 'audio/gsm', 446919, 'Audio almacenado y validado.', '2026-10-27 17:39:05');
+
+-- --------------------------------------------------------
+
+--
 -- Estructura de tabla para la tabla `audit_calls`
 --
 
@@ -102,7 +132,7 @@ CREATE TABLE `audit_calls` (
 
 INSERT INTO `audit_calls` (`id`, `tenant_id`, `campaign_id`, `source_id`, `external_call_id`, `agent_external_id`, `agent_user_id`, `phone_masked`, `started_at`, `duration_seconds`, `audio_storage_key`, `audio_sha256`, `audio_mime_type`, `audio_size_bytes`, `audio_status`, `transcript_storage_key`, `metadata_json`, `processing_status`, `imported_at`, `created_at`, `updated_at`) VALUES
 (1, 6, 3, NULL, 'CALLAUDIT-TEST-WORKER-001', 'AGENTE-PRUEBA', 8, '***0001', '2026-10-27 10:09:23', 180, NULL, NULL, NULL, NULL, 'NOT_RECEIVED', NULL, '{\"test_data\":true,\"purpose\":\"audit_worker_queue_test\"}', 'READY', '2026-10-27 11:09:23', '2026-10-27 16:09:23', '2026-10-27 16:12:48'),
-(2, 6, 3, NULL, 'CALLAUDIT-TEST-WORKER-002', NULL, NULL, NULL, '2026-10-27 11:16:30', 180, NULL, NULL, NULL, NULL, 'NOT_RECEIVED', NULL, '{\"test\":true,\"purpose\":\"worker-validation-2\"}', 'READY', '2026-10-27 11:16:30', '2026-10-27 16:16:30', '2026-10-27 16:17:18');
+(2, 6, 3, NULL, 'CALLAUDIT-TEST-WORKER-002', NULL, NULL, NULL, '2026-10-27 11:16:30', 180, 'tenant_6/call_2/c811861dbb42e64229551674a9f80bd4.gsm', 'c6fd451f2bc67c38750b82cbee2d88b0835df7a067bd85179df12133ae8fd511', 'audio/gsm', 446919, 'AVAILABLE', NULL, '{\"test\":true,\"purpose\":\"worker-validation-2\"}', 'READY', '2026-10-27 11:16:30', '2026-10-27 16:16:30', '2026-10-27 17:39:05');
 
 -- --------------------------------------------------------
 
@@ -303,7 +333,7 @@ CREATE TABLE `audit_result_answers` (
 --
 
 INSERT INTO `audit_result_answers` (`id`, `tenant_id`, `result_id`, `question_id`, `answer_value`, `numeric_score`, `is_na`, `critical_failure`, `comment`, `evidence_json`, `created_at`) VALUES
-(1, 6, 1, 21, 'YES', 100.00, 0, 0, 'mejorar en el saludo', NULL, '2026-10-27 17:05:48');
+(2, 6, 1, 21, 'YES', 100.00, 0, 0, 'mejorar en el saludo', NULL, '2026-10-27 17:14:21');
 
 -- --------------------------------------------------------
 
@@ -894,6 +924,14 @@ ALTER TABLE `audit_activity_log`
   ADD KEY `fk_aactivity_actor` (`actor_user_id`);
 
 --
+-- Indices de la tabla `audit_audio_events`
+--
+ALTER TABLE `audit_audio_events`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_audio_events_tenant_call` (`tenant_id`,`call_id`,`created_at`),
+  ADD KEY `idx_audio_events_actor` (`actor_user_id`,`created_at`);
+
+--
 -- Indices de la tabla `audit_calls`
 --
 ALTER TABLE `audit_calls`
@@ -1091,6 +1129,12 @@ ALTER TABLE `ai_provider_configs`
 --
 ALTER TABLE `audit_activity_log`
   MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT de la tabla `audit_audio_events`
+--
+ALTER TABLE `audit_audio_events`
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT de la tabla `audit_calls`
