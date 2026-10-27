@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Servidor: 127.0.0.1
--- Tiempo de generación: 22-10-2026 a las 21:07:28
+-- Tiempo de generación: 27-10-2026 a las 18:06:46
 -- Versión del servidor: 10.4.32-MariaDB
 -- Versión de PHP: 8.2.12
 
@@ -96,6 +96,14 @@ CREATE TABLE `audit_calls` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+--
+-- Volcado de datos para la tabla `audit_calls`
+--
+
+INSERT INTO `audit_calls` (`id`, `tenant_id`, `campaign_id`, `source_id`, `external_call_id`, `agent_external_id`, `agent_user_id`, `phone_masked`, `started_at`, `duration_seconds`, `audio_storage_key`, `audio_sha256`, `audio_mime_type`, `audio_size_bytes`, `audio_status`, `transcript_storage_key`, `metadata_json`, `processing_status`, `imported_at`, `created_at`, `updated_at`) VALUES
+(1, 6, 3, NULL, 'CALLAUDIT-TEST-WORKER-001', 'AGENTE-PRUEBA', 8, '***0001', '2026-10-27 10:09:23', 180, NULL, NULL, NULL, NULL, 'NOT_RECEIVED', NULL, '{\"test_data\":true,\"purpose\":\"audit_worker_queue_test\"}', 'READY', '2026-10-27 11:09:23', '2026-10-27 16:09:23', '2026-10-27 16:12:48'),
+(2, 6, 3, NULL, 'CALLAUDIT-TEST-WORKER-002', NULL, NULL, NULL, '2026-10-27 11:16:30', 180, NULL, NULL, NULL, NULL, 'NOT_RECEIVED', NULL, '{\"test\":true,\"purpose\":\"worker-validation-2\"}', 'READY', '2026-10-27 11:16:30', '2026-10-27 16:16:30', '2026-10-27 16:17:18');
+
 -- --------------------------------------------------------
 
 --
@@ -118,7 +126,8 @@ CREATE TABLE `audit_forms` (
 --
 
 INSERT INTO `audit_forms` (`id`, `tenant_id`, `name`, `description`, `status`, `created_by`, `created_at`, `updated_at`) VALUES
-(1, 1, 'VENTAS CALIDDA PERU', 'EVALUAREMOS LAS VENTAS DIARIAS DE CALIDDA PERU', 'ACTIVE', 7, '2026-10-21 18:53:26', '2026-10-21 18:53:26');
+(1, 1, 'VENTAS CALIDDA PERU', 'EVALUAREMOS LAS VENTAS DIARIAS DE CALIDDA PERU', 'ACTIVE', 7, '2026-10-21 18:53:26', '2026-10-21 18:53:26'),
+(2, 6, 'FORMULARIO PRUEBA WORKER CALLAUDIT', 'Formulario técnico para probar la generación de tareas.', 'ACTIVE', 8, '2026-10-27 16:09:22', '2026-10-27 16:09:22');
 
 -- --------------------------------------------------------
 
@@ -168,7 +177,8 @@ INSERT INTO `audit_form_questions` (`id`, `tenant_id`, `form_version_id`, `posit
 (17, 1, 2, 7, '¿El agente cumplió con el protocolo de cierre de la llamada?', NULL, 'YES_NO', NULL, 5.00, 0, 1, 0, NULL, 1, '2026-10-21 20:05:04'),
 (18, 1, 2, 8, '¿Qué errores o incumplimientos se detectaron durante la llamada?', NULL, 'TEXT', NULL, 0.01, 0, 0, 1, NULL, 1, '2026-10-21 20:05:04'),
 (19, 1, 2, 9, '¿Cuál fue el resultado final de la llamada?', NULL, 'SINGLE_CHOICE', '[\"Venta concretada\",\"consulta resuelta\",\"seguimiento pendiente\",\"cliente no interesado\",\"llamada no efectiva\"]', 5.00, 0, 1, 0, NULL, 1, '2026-10-21 20:05:04'),
-(20, 1, 2, 10, 'Observaciones y recomendaciones del auditor', NULL, 'TEXT', NULL, 0.01, 0, 1, 1, NULL, 1, '2026-10-21 20:05:04');
+(20, 1, 2, 10, 'Observaciones y recomendaciones del auditor', NULL, 'TEXT', NULL, 0.01, 0, 1, 1, NULL, 1, '2026-10-21 20:05:04'),
+(21, 6, 3, 1, '¿El agente se identificó correctamente?', NULL, 'YES_NO', NULL, 1.00, 0, 1, 0, NULL, 1, '2026-10-27 16:09:22');
 
 -- --------------------------------------------------------
 
@@ -196,7 +206,8 @@ CREATE TABLE `audit_form_versions` (
 
 INSERT INTO `audit_form_versions` (`id`, `tenant_id`, `form_id`, `version_number`, `status`, `passing_score`, `na_policy`, `published_by`, `published_at`, `created_by`, `created_at`) VALUES
 (1, 1, 1, 1, 'DRAFT', NULL, 'EXCLUDE', NULL, NULL, 7, '2026-10-21 18:53:26'),
-(2, 1, 1, 2, 'PUBLISHED', 80.00, 'ZERO', 7, '2026-10-21 15:05:56', 7, '2026-10-21 20:05:04');
+(2, 1, 1, 2, 'PUBLISHED', 80.00, 'ZERO', 7, '2026-10-21 15:05:56', 7, '2026-10-21 20:05:04'),
+(3, 6, 2, 1, 'PUBLISHED', 80.00, 'EXCLUDE', 8, '2026-10-27 11:09:22', 8, '2026-10-27 16:09:22');
 
 -- --------------------------------------------------------
 
@@ -226,6 +237,15 @@ CREATE TABLE `audit_jobs` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ;
 
+--
+-- Volcado de datos para la tabla `audit_jobs`
+--
+
+INSERT INTO `audit_jobs` (`id`, `tenant_id`, `job_type`, `entity_type`, `entity_id`, `idempotency_key`, `payload_json`, `status`, `priority`, `attempts`, `max_attempts`, `available_at`, `locked_at`, `locked_by`, `completed_at`, `last_error_code`, `last_error_message`, `created_at`, `updated_at`) VALUES
+(1, 6, 'GENERATE_AUDIT_TASKS', 'AUDIT_SELECTION_POLICY', 1, 'generate-audit-tasks:1:1:7d4b2453d03bb6ab93705b94fe9360ff', '{\"assigned_by\":8,\"selected_call_id\":1}', 'COMPLETED', 100, 1, 5, '2026-10-27 11:11:51', NULL, NULL, '2026-10-27 11:12:48', NULL, NULL, '2026-10-27 16:11:51', '2026-10-27 16:12:48'),
+(2, 6, 'GENERATE_AUDIT_TASKS', 'AUDIT_SELECTION_POLICY', 1, 'generate-audit-tasks:1:1:11fe31cb3cbcef39874d155c128bbbd2', '{\"assigned_by\":8,\"selected_call_id\":1}', 'CANCELLED', 100, 1, 5, '2026-10-27 11:12:50', NULL, NULL, NULL, 'PROCESSING_ERROR', 'La llamada seleccionada dejó de ser elegible antes de procesarse. No se crearon tareas.', '2026-10-27 16:11:58', '2026-10-27 16:16:30'),
+(3, 6, 'GENERATE_AUDIT_TASKS', 'AUDIT_SELECTION_POLICY', 1, 'generate-audit-tasks:1:2:89be392ee33c91621e112c5ed8284745', '{\"assigned_by\":8,\"selected_call_id\":2}', 'COMPLETED', 100, 1, 5, '2026-10-27 11:17:03', NULL, NULL, '2026-10-27 11:17:18', NULL, NULL, '2026-10-27 16:17:03', '2026-10-27 16:17:18');
+
 -- --------------------------------------------------------
 
 --
@@ -251,6 +271,13 @@ CREATE TABLE `audit_results` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ;
 
+--
+-- Volcado de datos para la tabla `audit_results`
+--
+
+INSERT INTO `audit_results` (`id`, `tenant_id`, `task_id`, `evaluator_type`, `evaluator_user_id`, `ai_provider`, `ai_model`, `verdict`, `score`, `analysis`, `strengths_json`, `improvement_json`, `confidence`, `status`, `evaluated_at`, `created_at`) VALUES
+(1, 6, 2, 'HUMAN', 8, NULL, NULL, 'REVIEW', 100.00, 'probando', NULL, NULL, NULL, 'DRAFT', NULL, '2026-10-27 17:05:48');
+
 -- --------------------------------------------------------
 
 --
@@ -271,6 +298,13 @@ CREATE TABLE `audit_result_answers` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ;
 
+--
+-- Volcado de datos para la tabla `audit_result_answers`
+--
+
+INSERT INTO `audit_result_answers` (`id`, `tenant_id`, `result_id`, `question_id`, `answer_value`, `numeric_score`, `is_na`, `critical_failure`, `comment`, `evidence_json`, `created_at`) VALUES
+(1, 6, 1, 21, 'YES', 100.00, 0, 0, 'mejorar en el saludo', NULL, '2026-10-27 17:05:48');
+
 -- --------------------------------------------------------
 
 --
@@ -290,6 +324,13 @@ CREATE TABLE `audit_selection_policies` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Volcado de datos para la tabla `audit_selection_policies`
+--
+
+INSERT INTO `audit_selection_policies` (`id`, `tenant_id`, `campaign_id`, `name`, `method`, `configuration_json`, `priority`, `enabled`, `created_by`, `created_at`, `updated_at`) VALUES
+(1, 6, 3, 'POLITICA PRUEBA WORKER CALLAUDIT', 'MANUAL', '{\"sample_size\":1,\"min_duration_seconds\":0,\"only_with_audio\":false}', 10, 1, 8, '2026-10-27 16:09:23', '2026-10-27 16:09:23');
 
 -- --------------------------------------------------------
 
@@ -313,6 +354,14 @@ CREATE TABLE `audit_tasks` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Volcado de datos para la tabla `audit_tasks`
+--
+
+INSERT INTO `audit_tasks` (`id`, `tenant_id`, `call_id`, `stage_id`, `assigned_to`, `assigned_by`, `status`, `priority`, `due_at`, `started_at`, `submitted_at`, `completed_at`, `created_at`, `updated_at`) VALUES
+(1, 6, 1, 1, NULL, 8, 'PENDING', 10, NULL, NULL, NULL, NULL, '2026-10-27 16:12:48', '2026-10-27 16:12:48'),
+(2, 6, 2, 1, 8, 8, 'IN_PROGRESS', 10, NULL, '2026-10-27 12:05:48', NULL, NULL, '2026-10-27 16:17:18', '2026-10-27 17:05:48');
 
 -- --------------------------------------------------------
 
@@ -353,6 +402,13 @@ CREATE TABLE `audit_workflow_stages` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ;
+
+--
+-- Volcado de datos para la tabla `audit_workflow_stages`
+--
+
+INSERT INTO `audit_workflow_stages` (`id`, `tenant_id`, `campaign_id`, `stage_number`, `name`, `form_version_id`, `human_enabled`, `ai_enabled`, `ai_required`, `status`, `created_by`, `created_at`, `updated_at`) VALUES
+(1, 6, 3, 1, 'ETAPA PRUEBA WORKER CALLAUDIT', 3, 1, 0, 0, 'ACTIVE', 8, '2026-10-27 16:09:23', '2026-10-27 16:09:23');
 
 -- --------------------------------------------------------
 
@@ -1040,13 +1096,13 @@ ALTER TABLE `audit_activity_log`
 -- AUTO_INCREMENT de la tabla `audit_calls`
 --
 ALTER TABLE `audit_calls`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT de la tabla `audit_forms`
 --
 ALTER TABLE `audit_forms`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT de la tabla `audit_form_questions`
@@ -1082,13 +1138,13 @@ ALTER TABLE `audit_result_answers`
 -- AUTO_INCREMENT de la tabla `audit_selection_policies`
 --
 ALTER TABLE `audit_selection_policies`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT de la tabla `audit_tasks`
 --
 ALTER TABLE `audit_tasks`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT de la tabla `audit_workflow_stages`
