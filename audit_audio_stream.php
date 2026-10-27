@@ -5,58 +5,181 @@ require_once __DIR__ . '/services/Authorization.php';
 require_once __DIR__ . '/services/CampaignTenantContext.php';
 require_once __DIR__ . '/config/database.php';
 
+/*
+|--------------------------------------------------------------------------
+| CallAudit - Reproducción segura de audios
+|--------------------------------------------------------------------------
+| - Respeta los permisos existentes.
+| - Aísla las llamadas por empresa.
+| - Almacena los audios fuera del directorio público.
+| - Convierte GSM de Asterisk a WAV PCM mediante FFmpeg.
+| - Transmite los demás formatos con soporte Range.
+| - No modifica el audio original.
+|--------------------------------------------------------------------------
+*/
+
+/**
+ * Limpia los búferes PHP antes de transmitir audio binario.
+ */
+function callAuditLimpiarBuffers(): void
+{
+    while (ob_get_level() > 0) {
+        if (!@ob_end_clean()) {
+            break;
+        }
+    }
+}
+
+/**
+ * Resuelve la carpeta de almacenamiento.
+ */
+function callAuditAudioRoot(): string
+{
+    $configured = getenv('CALLAUDIT_AUDIO_STORAGE_PATH');
+
+    if (is_string($configured) && trim($configured) !== '') {
+        return rtrim(trim($configured), "\\/");
+    }
+
+    return dirname(__DIR__, 2)
+        . DIRECTORY_SEPARATOR . 'callaudit_storage'
+        . DIRECTORY_SEPARATOR . 'audio';
+}
+
+/**
+ * Obtiene la ruta del ejecutable FFmpeg.
+ *
+ * En este entorno Windows la ruta predeterminada es:
+ * D:\tools\ffmpeg\bin\ffmpeg.exe
+ */
+function callAuditFfmpegPath(): string
+{
+    $configured = getenv('CALLAUDIT_FFMPEG_PATH');
+
+    if (is_string($configured) && trim($configured) !== '') {
+        $configured = trim($configured);
+
+        // Permite valores configurados con comillas exteriores.
+        if (
+            strlen($configured) >= 2 &&
+            (
+                ($configured[0] === '"' &&
+                    substr($configured, -1) === '"') ||
+                ($configured[0] === "'" &&
+                    substr($configured, -1) === "'")
+            )
+        ) {
+            $configured = substr($configured, 1, -1);
+        }
+
+        return $configured;
+    }
+
+    return 'D:\\tools\\ffmpeg\\bin\\ffmpeg.exe';
+}
+
+/**
+ * Termina una petición con un mensaje de texto.
+ */
+function callAuditAudioError(
+    int $status,
+    string $message
+): void {
+    callAuditLimpiarBuffers();
+
+    http_response_code($status);
+    header('Content-Type: text/plain; charset=utf-8');
+    header('X-Content-Type-Options: nosniff');
+    header('Cache-Control: no-store');
+
+    exit($message);
+}
+
+/*
+|--------------------------------------------------------------------------
+| 1. Autenticación y autorización
+|--------------------------------------------------------------------------
+*/
+
 $auth = new AuthMiddleware();
 $user = $auth->usuario();
 
 if (!$user) {
-    http_response_code(401);
-    exit('Usuario no autenticado.');
+    callAuditAudioError(401, 'Usuario no autenticado.');
+}
+
+$userId = (int) ($user['id'] ?? 0);
+
+if ($userId <= 0) {
+    callAuditAudioError(401, 'Identificador de usuario inválido.');
+}
+
+$authorization = new Authorization();
+
+$canViewCalls = $authorization->tienePermiso(
+    $userId,
+    'calls.view'
+);
+
+$canEditAudits = $authorization->tienePermiso(
+    $userId,
+    'audits.edit'
+);
+
+if (!$canViewCalls && !$canEditAudits) {
+    callAuditAudioError(
+        403,
+        'No tienes permiso para reproducir este audio.'
+    );
 }
 
 /*
- * La reproducción puede requerirse desde:
- * - la consulta de llamadas: calls.view
- * - la evaluación humana: audits.edit
- *
- * Authorization conserva la prioridad de DENY individual y los permisos
- * asignados por rol o individualmente. No se concede ningún permiso nuevo.
- */
-$authorization = new Authorization();
-$userId = (int) ($user['id'] ?? 0);
-
-$canViewCalls = $userId > 0
-    && $authorization->tienePermiso($userId, 'calls.view');
-
-$canEditAudits = $userId > 0
-    && $authorization->tienePermiso($userId, 'audits.edit');
-
-if (!$canViewCalls && !$canEditAudits) {
-    http_response_code(403);
-    exit('No tienes permiso para reproducir este audio.');
-}
+|--------------------------------------------------------------------------
+| 2. Resolver el contexto autorizado de empresa
+|--------------------------------------------------------------------------
+*/
 
 $tenantId = (new CampaignTenantContext())->resolver($user);
 
 if ($tenantId <= 0) {
-    http_response_code(403);
-    exit('El contexto de empresa no es válido.');
+    callAuditAudioError(
+        403,
+        'El contexto de empresa no es válido.'
+    );
 }
 
+/*
+|--------------------------------------------------------------------------
+| 3. Validar identificador de llamada
+|--------------------------------------------------------------------------
+*/
+
 $callRaw = $_GET['call_id'] ?? '';
+
 $callId = is_string($callRaw) && ctype_digit($callRaw)
     ? (int) $callRaw
     : 0;
 
 if ($callId <= 0) {
-    http_response_code(400);
-    exit('Identificador de llamada inválido.');
+    callAuditAudioError(
+        400,
+        'Identificador de llamada inválido.'
+    );
 }
+
+/*
+|--------------------------------------------------------------------------
+| 4. Consultar la llamada dentro de la empresa autorizada
+|--------------------------------------------------------------------------
+*/
 
 $db = (new Database())->connect();
 
 if (!$db) {
-    http_response_code(500);
-    exit('No se pudo conectar con la base de datos.');
+    callAuditAudioError(
+        500,
+        'No se pudo conectar con la base de datos.'
+    );
 }
 
 $stmt = $db->prepare("
@@ -81,66 +204,92 @@ $stmt->execute([
 $call = $stmt->fetch();
 
 if (!$call) {
-    http_response_code(404);
-    exit('Llamada no encontrada en esta empresa.');
+    callAuditAudioError(
+        404,
+        'Llamada no encontrada en esta empresa.'
+    );
 }
 
 if (
     $call['audio_status'] !== 'AVAILABLE' ||
     empty($call['audio_storage_key'])
 ) {
-    http_response_code(404);
-    exit('El audio no está disponible.');
+    callAuditAudioError(
+        404,
+        'El audio no está disponible.'
+    );
 }
 
 /*
- * Aceptamos únicamente claves relativas con el formato generado
- * por el cargador de audios. Nunca se permite una ruta arbitraria.
- */
+|--------------------------------------------------------------------------
+| 5. Validar la clave relativa del archivo
+|--------------------------------------------------------------------------
+|
+| Solo se admiten claves generadas por el módulo de carga.
+| No se aceptan rutas absolutas, traversal ni otras empresas.
+|--------------------------------------------------------------------------
+*/
+
 $key = (string) $call['audio_storage_key'];
 
-$pattern = '~^tenant_' . preg_quote((string) $tenantId, '~') .
-    '/call_' . preg_quote((string) $callId, '~') .
+$pattern = '~^tenant_' .
+    preg_quote((string) $tenantId, '~') .
+    '/call_' .
+    preg_quote((string) $callId, '~') .
     '/[a-f0-9]{32}\.(wav|mp3|ogg|flac|m4a|aac|gsm)$~D';
 
 if (!preg_match($pattern, $key)) {
-    http_response_code(404);
-    exit('Clave de audio no válida.');
+    callAuditAudioError(
+        404,
+        'Clave de audio no válida.'
+    );
 }
 
 /*
- * CALLAUDIT_AUDIO_STORAGE_PATH permite configurar el almacenamiento.
- * Valor predeterminado para el entorno indicado:
- * D:\Xampp\callaudit_storage\audio
- */
-$rootSetting = getenv('CALLAUDIT_AUDIO_STORAGE_PATH');
+|--------------------------------------------------------------------------
+| 6. Resolver y validar el almacenamiento físico
+|--------------------------------------------------------------------------
+*/
 
-$root = is_string($rootSetting) && trim($rootSetting) !== ''
-    ? rtrim($rootSetting, "\\/")
-    : dirname(__DIR__, 2) .
-        DIRECTORY_SEPARATOR . 'callaudit_storage' .
-        DIRECTORY_SEPARATOR . 'audio';
-
+$root = callAuditAudioRoot();
 $realRoot = realpath($root);
 
-$path = $root . DIRECTORY_SEPARATOR .
+if ($realRoot === false || !is_dir($realRoot)) {
+    error_log(
+        '[CallAudit][audio_stream] No existe el almacenamiento: ' .
+        $root
+    );
+
+    callAuditAudioError(
+        500,
+        'No se encontró el repositorio de audios configurado.'
+    );
+}
+
+$path = $realRoot . DIRECTORY_SEPARATOR .
     str_replace('/', DIRECTORY_SEPARATOR, $key);
 
 $realPath = realpath($path);
 
-$prefix = $realRoot
-    ? rtrim($realRoot, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR
-    : '';
+$prefix = rtrim($realRoot, "\\/") . DIRECTORY_SEPARATOR;
 
 if (
-    !$realRoot ||
-    !$realPath ||
-    strpos($realPath, $prefix) !== 0 ||
+    $realPath === false ||
+    strpos(
+        strtolower($realPath),
+        strtolower($prefix)
+    ) !== 0 ||
     !is_file($realPath) ||
     !is_readable($realPath)
 ) {
-    http_response_code(404);
-    exit(
+    error_log(
+        '[CallAudit][audio_stream] Archivo inexistente o no legible. ' .
+        'Call ID: ' . $callId .
+        ', tenant ID: ' . $tenantId
+    );
+
+    callAuditAudioError(
+        404,
         'El archivo de audio no existe o Apache no tiene permiso para leerlo.'
     );
 }
@@ -148,8 +297,10 @@ if (
 $size = filesize($realPath);
 
 if (!is_int($size) || $size <= 0) {
-    http_response_code(404);
-    exit('El archivo de audio está vacío o no se puede leer.');
+    callAuditAudioError(
+        404,
+        'El archivo de audio está vacío o no se puede leer.'
+    );
 }
 
 $extension = strtolower(
@@ -157,50 +308,61 @@ $extension = strtolower(
 );
 
 /*
- * GSM crudo de Asterisk:
- * se convierte a WAV PCM en tiempo de reproducción.
- * El original nunca se modifica.
- *
- * Configure CALLAUDIT_FFMPEG_PATH con la ruta completa a ffmpeg.exe,
- * o asegúrese de que ffmpeg esté disponible en el PATH de Apache.
- */
+|--------------------------------------------------------------------------
+| 7. Convertir GSM a WAV usando FFmpeg
+|--------------------------------------------------------------------------
+|
+| Se ejecuta un comando de texto con los argumentos correctamente
+| escapados. Esta forma es compatible con la prueba realizada desde
+| Apache en Windows.
+|
+| El WAV se transmite por stdout; el original GSM no se modifica.
+|--------------------------------------------------------------------------
+*/
+
 if ($extension === 'gsm') {
     if (!function_exists('proc_open')) {
-        http_response_code(503);
-        header('Content-Type: text/plain; charset=utf-8');
-        exit(
-            'La reproducción GSM requiere proc_open habilitado en PHP ' .
-            'y FFmpeg instalado en el servidor.'
+        callAuditAudioError(
+            503,
+            'La reproducción GSM requiere proc_open habilitado en PHP.'
         );
     }
 
-    $ffmpegSetting = getenv('CALLAUDIT_FFMPEG_PATH');
+    $ffmpeg = callAuditFfmpegPath();
 
-    $ffmpeg = is_string($ffmpegSetting) &&
-        trim($ffmpegSetting) !== ''
-        ? trim($ffmpegSetting)
-        : 'ffmpeg';
+    if (!is_file($ffmpeg) || !is_readable($ffmpeg)) {
+        error_log(
+            '[CallAudit][audio_stream] FFmpeg no encontrado: ' .
+            $ffmpeg
+        );
+
+        callAuditAudioError(
+            503,
+            'No se encontró FFmpeg. Verifique ' .
+            'D:\\tools\\ffmpeg\\bin\\ffmpeg.exe o configure ' .
+            'CALLAUDIT_FFMPEG_PATH.'
+        );
+    }
 
     /*
-     * Se pasa el comando como array para evitar que la ruta del archivo
-     * se interprete como comandos de shell.
+     * escapeshellarg protege las rutas que contienen espacios.
+     * Los parámetros son constantes; las rutas se escapan por separado.
      */
-    $command = [
-        $ffmpeg,
-        '-hide_banner',
-        '-loglevel', 'error',
-        '-nostdin',
-        '-f', 'gsm',
-        '-ar', '8000',
-        '-ac', '1',
-        '-i', $realPath,
-        '-vn',
-        '-f', 'wav',
-        '-c:a', 'pcm_s16le',
-        '-ar', '8000',
-        '-ac', '1',
-        'pipe:1'
-    ];
+    $command =
+        escapeshellarg($ffmpeg) .
+        ' -hide_banner' .
+        ' -loglevel error' .
+        ' -nostdin' .
+        ' -f gsm' .
+        ' -ar 8000' .
+        ' -ac 1' .
+        ' -i ' . escapeshellarg($realPath) .
+        ' -vn' .
+        ' -f wav' .
+        ' -c:a pcm_s16le' .
+        ' -ar 8000' .
+        ' -ac 1' .
+        ' pipe:1';
 
     $descriptors = [
         0 => ['pipe', 'r'],
@@ -208,32 +370,58 @@ if ($extension === 'gsm') {
         2 => ['pipe', 'w']
     ];
 
+    $pipes = [];
+
     $process = @proc_open(
         $command,
         $descriptors,
         $pipes,
         null,
-        null,
-        ['bypass_shell' => true]
+        null
     );
 
     if (!is_resource($process)) {
-        http_response_code(503);
-        header('Content-Type: text/plain; charset=utf-8');
-        exit(
-            'No se pudo iniciar FFmpeg. Configure CALLAUDIT_FFMPEG_PATH ' .
-            'o agregue ffmpeg al PATH de Apache.'
+        error_log(
+            '[CallAudit][audio_stream] proc_open no pudo iniciar ' .
+            'FFmpeg. Call ID: ' . $callId
+        );
+
+        callAuditAudioError(
+            503,
+            'PHP no pudo iniciar FFmpeg. Verifique los permisos ' .
+            'del ejecutable y la configuración de PHP.'
+        );
+    }
+
+    if (
+        !isset($pipes[0], $pipes[1], $pipes[2]) ||
+        !is_resource($pipes[1]) ||
+        !is_resource($pipes[2])
+    ) {
+        foreach ($pipes as $pipe) {
+            if (is_resource($pipe)) {
+                fclose($pipe);
+            }
+        }
+
+        @proc_terminate($process);
+        @proc_close($process);
+
+        callAuditAudioError(
+            500,
+            'No se pudieron preparar los canales de FFmpeg.'
         );
     }
 
     fclose($pipes[0]);
 
     /*
-     * Evitamos bloquear la salida esperando el texto de diagnóstico.
-     * Los errores se envían al log de Apache/PHP.
+     * El diagnóstico se lee sin bloquear la transmisión del WAV.
      */
     stream_set_blocking($pipes[1], true);
     stream_set_blocking($pipes[2], false);
+
+    callAuditLimpiarBuffers();
 
     header('Content-Type: audio/wav');
     header(
@@ -243,6 +431,8 @@ if ($extension === 'gsm') {
     header('X-Content-Type-Options: nosniff');
     header('Cache-Control: private, no-store, max-age=0');
     header('Accept-Ranges: none');
+
+    $bytesSent = 0;
 
     while (!feof($pipes[1])) {
         $chunk = fread($pipes[1], 8192);
@@ -255,10 +445,13 @@ if ($extension === 'gsm') {
             if (feof($pipes[1])) {
                 break;
             }
+
             continue;
         }
 
         echo $chunk;
+        $bytesSent += strlen($chunk);
+
         flush();
 
         if (connection_aborted()) {
@@ -268,16 +461,36 @@ if ($extension === 'gsm') {
 
     fclose($pipes[1]);
 
-    $diagnostic = stream_get_contents($pipes[2]);
+    /*
+     * Capturar los mensajes que FFmpeg haya enviado a stderr.
+     */
+    $diagnostic = '';
+
+    while (!feof($pipes[2])) {
+        $part = fread($pipes[2], 8192);
+
+        if ($part === false || $part === '') {
+            break;
+        }
+
+        $diagnostic .= $part;
+
+        if (strlen($diagnostic) > 8192) {
+            $diagnostic = substr($diagnostic, -8192);
+        }
+    }
+
     fclose($pipes[2]);
 
     $exitCode = proc_close($process);
 
-    if ($exitCode !== 0) {
+    if ($exitCode !== 0 || $bytesSent === 0) {
         error_log(
-            '[CallAudit][audio_stream] FFmpeg falló para la llamada ' .
-            $callId . '. Código: ' . $exitCode .
-            '. Detalle: ' . substr((string) $diagnostic, 0, 2000)
+            '[CallAudit][audio_stream] Falló la conversión GSM. ' .
+            'Call ID: ' . $callId .
+            ', código: ' . $exitCode .
+            ', bytes enviados: ' . $bytesSent .
+            ', detalle: ' . substr($diagnostic, 0, 2000)
         );
     }
 
@@ -285,8 +498,11 @@ if ($extension === 'gsm') {
 }
 
 /*
- * Formatos que se transmiten directamente.
- */
+|--------------------------------------------------------------------------
+| 8. Transmitir directamente formatos no GSM
+|--------------------------------------------------------------------------
+*/
+
 $mimeAllowed = [
     'audio/wav',
     'audio/x-wav',
@@ -309,12 +525,16 @@ if (!in_array($mime, $mimeAllowed, true)) {
         'aac' => 'audio/aac'
     ];
 
-    $mime = $mimeByExtension[$extension] ?? 'application/octet-stream';
+    $mime = $mimeByExtension[$extension]
+        ?? 'application/octet-stream';
 }
 
 /*
- * Compatibilidad con peticiones Range para WAV/MP3/OGG/FLAC/M4A/AAC.
- */
+|--------------------------------------------------------------------------
+| 9. Soporte HTTP Range para el reproductor
+|--------------------------------------------------------------------------
+*/
+
 $start = 0;
 $end = $size - 1;
 $status = 200;
@@ -323,12 +543,18 @@ $range = $_SERVER['HTTP_RANGE'] ?? '';
 
 if (is_string($range) && $range !== '') {
     if (
-        !preg_match('/^bytes=(\d*)-(\d*)$/', trim($range), $matches) ||
+        !preg_match(
+            '/^bytes=(\d*)-(\d*)$/',
+            trim($range),
+            $matches
+        ) ||
         ($matches[1] === '' && $matches[2] === '')
     ) {
         header('Content-Range: bytes */' . $size);
-        http_response_code(416);
-        exit;
+        callAuditAudioError(
+            416,
+            'Rango de audio no válido.'
+        );
     }
 
     if ($matches[1] === '') {
@@ -336,8 +562,10 @@ if (is_string($range) && $range !== '') {
 
         if ($suffix <= 0) {
             header('Content-Range: bytes */' . $size);
-            http_response_code(416);
-            exit;
+            callAuditAudioError(
+                416,
+                'Rango de audio no válido.'
+            );
         }
 
         $start = max(0, $size - $suffix);
@@ -351,12 +579,22 @@ if (is_string($range) && $range !== '') {
 
     if ($start > $end || $start >= $size) {
         header('Content-Range: bytes */' . $size);
-        http_response_code(416);
-        exit;
+        callAuditAudioError(
+            416,
+            'El rango solicitado está fuera del archivo.'
+        );
     }
 
     $status = 206;
 }
+
+/*
+|--------------------------------------------------------------------------
+| 10. Enviar cabeceras y transmitir el archivo
+|--------------------------------------------------------------------------
+*/
+
+callAuditLimpiarBuffers();
 
 http_response_code($status);
 
@@ -377,34 +615,45 @@ if ($status === 206) {
     );
 }
 
-while (ob_get_level() > 0) {
-    ob_end_clean();
-}
-
-$handle = fopen($realPath, 'rb');
+$handle = @fopen($realPath, 'rb');
 
 if (!$handle) {
-    http_response_code(500);
-    exit('No se pudo abrir el archivo de audio.');
+    error_log(
+        '[CallAudit][audio_stream] No se pudo abrir el archivo. ' .
+        'Call ID: ' . $callId
+    );
+
+    callAuditAudioError(
+        500,
+        'No se pudo abrir el archivo de audio.'
+    );
 }
 
 if (fseek($handle, $start) !== 0) {
     fclose($handle);
-    http_response_code(500);
-    exit('No se pudo posicionar la lectura del audio.');
+
+    callAuditAudioError(
+        500,
+        'No se pudo posicionar la lectura del audio.'
+    );
 }
 
 $remaining = $end - $start + 1;
 
 while ($remaining > 0 && !feof($handle)) {
-    $chunk = fread($handle, min(8192, $remaining));
+    $chunk = fread(
+        $handle,
+        min(8192, $remaining)
+    );
 
     if ($chunk === false || $chunk === '') {
         break;
     }
 
     echo $chunk;
+
     $remaining -= strlen($chunk);
+
     flush();
 
     if (connection_aborted()) {
