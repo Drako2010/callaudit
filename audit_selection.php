@@ -49,7 +49,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'message' => 'Política inválida.'
             ];
         } else {
-            $result = $controller->generar($tenantId, $policyId);
+            $requestKey = strtolower(trim(
+                (string) ($_POST['request_key'] ?? '')
+            ));
+
+            $result = $controller->generar(
+                $tenantId,
+                $policyId,
+                $requestKey
+            );
         }
     } else {
         $id = filter_var($_POST['id'] ?? null, FILTER_VALIDATE_INT);
@@ -71,11 +79,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (!empty($result['success']) && $action === 'generate') {
-        $message .= ' Llamadas seleccionadas: ' . (int) ($result['selected'] ?? 0) .
-            '. Tareas nuevas: ' . (int) ($result['created'] ?? 0) .
-            '. Tareas existentes: ' . (int) ($result['skipped'] ?? 0) . '.';
+    $message = 'Solicitud encolada correctamente. ID del trabajo: ' .
+        (int) ($result['job_id'] ?? 0) .
+        '. La generación se ejecutará en segundo plano.';
 
-        $policies = $controller->listar($tenantId, $campaignId);
+    $messageType = 'success';
+    $policies = $controller->listar($tenantId, $campaignId);
     }
 }
 
@@ -233,6 +242,7 @@ th,td{padding:10px;border-bottom:1px solid #e4e7ec;text-align:left}
                                     <input type="hidden" name="campaign_id" value="<?= $campaignId ?>">
                                     <input type="hidden" name="policy_id" value="<?= (int) $policy['id'] ?>">
                                     <input type="hidden" name="action" value="generate">
+                                    <input type="hidden" name="request_key" value="<?= auditSelectionH(bin2hex(random_bytes(16))) ?>">
                                     <button type="submit">Generar tareas</button>
                                 </form>
                             <?php else: ?>

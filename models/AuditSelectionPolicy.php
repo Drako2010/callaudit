@@ -1,5 +1,5 @@
 <?php
-
+require_once __DIR__ . '/AuditJobQueue.php';
 require_once __DIR__ . '/../config/database.php';
 
 class AuditSelectionPolicy
@@ -237,6 +237,95 @@ class AuditSelectionPolicy
     }
 
     /**
+     * Encola la generación de tareas para que la procese el worker.
+     * El tenant se valida contra la política y vuelve a validarse
+     * al ejecutar el procesador.
+     */
+    public function encolarGeneracion(
+        int $tenantId,
+        int $policyId,
+        int $userId,
+        string $requestKey
+    ): array {
+        if (
+            !$this->db ||
+            $tenantId <= 0 ||
+            $policyId <= 0 ||
+            $userId <= 0 ||
+            !preg_match('/^[a-f0-9]{32,64}$/', $requestKey)
+        ) {
+            return [
+                'success' => false,
+                'message' => 'Los datos para encolar la generación no son válidos.'
+            ];
+        }
+
+        try {
+            $stmt = $this->db->prepare("
+                SELECT id, campaign_id
+                FROM audit_selection_policies
+                WHERE id = :policy
+                  AND tenant_id = :tenant
+                  AND enabled = 1
+                LIMIT 1
+            ");
+
+            $stmt->execute([
+                ':policy' => $policyId,
+                ':tenant' => $tenantId
+            ]);
+
+            $policy = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$policy) {
+                return [
+                    'success' => false,
+                    'message' => 'La política no existe en esta empresa o está desactivada.'
+                ];
+            }
+
+            $queue = new AuditJobQueue();
+
+            $job = $queue->encolar(
+                $tenantId,
+                'GENERATE_AUDIT_TASKS',
+                'AUDIT_SELECTION_POLICY',
+                $policyId,
+                'generate-audit-tasks:' . $policyId . ':' . $requestKey,
+                [
+                    'assigned_by' => $userId
+                ],
+                100,
+                5
+            );
+
+            if (empty($job['success'])) {
+                return [
+                    'success' => false,
+                    'message' => $job['message'] ?? 'No se pudo encolar el trabajo.'
+                ];
+            }
+
+            return [
+                'success' => true,
+                'queued' => true,
+                'job_id' => (int) $job['id'],
+                'message' => 'Solicitud registrada en la cola. El trabajador generará las tareas.'
+            ];
+        } catch (Throwable $e) {
+            error_log(
+                '[CallAudit][AuditSelectionPolicy::encolarGeneracion] ' .
+                $e->getMessage()
+            );
+
+            return [
+                'success' => false,
+                'message' => 'No se pudo registrar la solicitud. Revisa el log del servidor.'
+            ];
+        }
+    }
+
+    /**
      * Genera tareas para las llamadas elegibles de una política.
      * La restricción UNIQUE de audit_tasks evita duplicados por llamada/etapa.
      *
@@ -321,6 +410,7 @@ class AuditSelectionPolicy
                 $sampleSize = 1;
             }
 
+            
             $sql = "
                 SELECT c.id
                 FROM audit_calls c
@@ -329,17 +419,29 @@ class AuditSelectionPolicy
                   AND c.processing_status IN ('NEW', 'READY')
                   {$whereAudio}
                   {$whereDuration}
+
+                  /* Debe existir al menos una etapa activa pendiente
+                     de crear para esta llamada. */
                   AND EXISTS (
                       SELECT 1
                       FROM audit_workflow_stages s
                       WHERE s.tenant_id = c.tenant_id
                         AND s.campaign_id = c.campaign_id
                         AND s.status = 'ACTIVE'
+                        AND NOT EXISTS (
+                            SELECT 1
+                            FROM audit_tasks t
+                            WHERE t.tenant_id = c.tenant_id
+                              AND t.call_id = c.id
+                              AND t.stage_id = s.id
+                        )
                   )
+
                 {$order}
                 LIMIT {$sampleSize}
                 FOR UPDATE
             ";
+
 
             $stmt = $this->db->prepare($sql);
             $stmt->execute([

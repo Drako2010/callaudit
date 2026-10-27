@@ -84,14 +84,18 @@ class AuditSelectionController
         );
     }
 
-    public function generar(int $tenantId, int $policyId): array
-    {
+    public function generar(
+        int $tenantId,
+        int $policyId,
+        string $requestKey
+    ): array {
         $user = $this->validarAcceso($tenantId, 'audits.create');
 
-        return $this->model->generarTareas(
+        return $this->model->encolarGeneracion(
             $tenantId,
             $policyId,
-            (int) $user['id']
+            (int) $user['id'],
+            $requestKey
         );
     }
 }
